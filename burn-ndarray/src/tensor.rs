@@ -38,7 +38,7 @@ mod utils {
 
 #[derive(new)]
 pub(crate) struct BatchMatrix<E, const D: usize> {
-    pub arrays: Vec<ArcArray<E, Ix2>>,
+    pub arrays: Vec<Array<E, Ix2>>,
     pub shape: Shape<D>,
 }
 
@@ -47,23 +47,11 @@ where
     E: NdArrayElement,
 {
     pub fn from_ndarray(array: ArcArray<E, IxDyn>, shape: Shape<D>) -> Self {
-        let mut arrays = Vec::new();
-        if D < 2 {
-            let array = array.reshape((1, shape.dims[0]));
-            arrays.push(array);
+        if D == 1 {
+            Self::from_vector(array, shape)
         } else {
-            let batch_size = batch_size(&shape);
-            let size0 = shape.dims[D - 2];
-            let size1 = shape.dims[D - 1];
-            let array_global = array.reshape((batch_size, size0, size1));
-            for b in 0..batch_size {
-                let array = array_global.slice(s!(b, .., ..));
-                let array = array.into_owned().into_shared();
-                arrays.push(array);
-            }
+            Self::from_matrices(array, shape)
         }
-
-        Self { arrays, shape }
     }
 
     pub fn matmul(self, other: BatchMatrix<E, D>) -> Self {
@@ -72,19 +60,42 @@ where
             return self.matmul_broadcast(other);
         }
 
-        let self_iter = self.arrays.iter();
-        let other_iter = other.arrays.iter();
+        let self_iter = self.arrays.into_iter();
+        let other_iter = other.arrays.into_iter();
 
         let arrays = self_iter
             .zip(other_iter)
-            .map(|(lhs, rhs)| lhs.dot(rhs))
-            .map(|output| output.into_shared())
+            .map(|(lhs, rhs)| lhs.dot(&rhs))
             .collect();
 
         let mut shape = self.shape;
         shape.dims[D - 1] = other.shape.dims[D - 1];
 
         Self::new(arrays, shape)
+    }
+
+    fn from_vector(array: ArcArray<E, IxDyn>, shape: Shape<D>) -> Self {
+        let mut arrays = Vec::with_capacity(1);
+        let array = array.reshape((1, shape.dims[0]));
+        arrays.push(array.into_owned());
+
+        Self { arrays, shape }
+    }
+
+    fn from_matrices(array: ArcArray<E, IxDyn>, shape: Shape<D>) -> Self {
+        let batch_size = batch_size(&shape);
+        let size0 = shape.dims[D - 2];
+        let size1 = shape.dims[D - 1];
+        let array_global = array.reshape((batch_size, size0, size1));
+        let mut arrays = Vec::with_capacity(batch_size);
+
+        for b in 0..batch_size {
+            let array = array_global.slice(s!(b, .., ..));
+            let array = array.into_owned();
+            arrays.push(array);
+        }
+
+        Self { arrays, shape }
     }
 
     fn matmul_broadcast(self, other: BatchMatrix<E, D>) -> Self {
@@ -109,7 +120,7 @@ where
             };
 
             let tensor = self_tensor.dot(other_tensor);
-            arrays.push(tensor.into_shared());
+            arrays.push(tensor);
         }
 
         let mut shape = self.shape;
@@ -181,9 +192,9 @@ where
             let dims = data.shape.dims;
             let mut array: Array<E, Ix3> = Array::default((0, dims[D - 2], dims[D - 1]));
 
-            for item in data.arrays {
-                array.push(Axis(0), item.view()).unwrap();
-            }
+            data.arrays
+                .into_iter()
+                .for_each(|item| array.push(Axis(0), item.view()).unwrap());
 
             array.into_shared()
         };
