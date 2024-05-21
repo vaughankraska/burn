@@ -4,7 +4,6 @@ use crate::{
 };
 use alloc::vec::Vec;
 use hashbrown::HashMap;
-use std::sync::Arc;
 
 #[cfg(all(not(target_family = "wasm"), feature = "std"))]
 use std::time;
@@ -37,7 +36,6 @@ pub enum SimpleBinding {
 }
 
 const DEFAULT_ROUNDING: usize = 512;
-
 /// maximum size we can allocate before moving on to the big pool
 const SMALL_POOL_THRESHOLD: usize = 1024;
 
@@ -80,7 +78,7 @@ struct Chunk {
 }
 
 impl Chunk {
-    fn merge_free_slices(&self, slices_pool: &mut HashMap<SliceId, Slice>) {
+    fn merge_free_slices(&mut self, slices_pool: &mut HashMap<SliceId, Slice>) {
         let mut merged_slices: Vec<SliceId> = Vec::new();
 
         let mut start_slice_idx: usize = 0;
@@ -102,11 +100,11 @@ impl Chunk {
             // if multiple contiguous slice, merge them into one bigger slice
             if start_slice_idx != end_slice_idx {
                 let handle_slice = SliceHandle::new();
-                let start_slice: StorageHandle = slices_pool
+                let start_slice: &StorageHandle = &slices_pool
                     .get(&self.slices[start_slice_idx])
                     .expect("memory slice not in memory pool")
                     .storage;
-                let end_slice: StorageHandle = slices_pool
+                let end_slice: &StorageHandle = &slices_pool
                     .get(&self.slices[start_slice_idx])
                     .expect("memory slice not in memory pool")
                     .storage;
@@ -262,7 +260,11 @@ impl<Storage: ComputeStorage> MemoryManagement<Storage> for CachedMemoryMangamen
     }
 
     fn alloc(&mut self, size: usize) -> Self::Handle {
-        self.create_chunk(size)
+        let slice_size = SliceSize::new(size);
+        let slice_id = self.create_slice_block(&slice_size);
+        let slice = self.slices.get(&slice_id).unwrap();
+
+        SimpleHandle::Slice(slice.handle.clone())
     }
 
     fn dealloc(&mut self, binding: Self::Binding) {
@@ -297,20 +299,23 @@ impl<Storage: ComputeStorage> CachedMemoryMangament<Storage> {
     }
 
     fn merge_free_slices(&mut self) {
-        // This might be wrong, but I think this is fine
-        for pool in [&self.small_chunk_pool, &self.large_chunk_pool] {
-            for (chunk_id, chunk) in pool.iter_mut() {
-                chunk.merge_free_slices(&mut self.slices)
-            }
+        // Iterate over small_chunk_pool
+        for (_chunk_id, chunk) in self.small_chunk_pool.iter_mut() {
+            chunk.merge_free_slices(&mut self.slices);
+        }
+
+        // Iterate over large_chunk_pool
+        for (_chunk_id, chunk) in self.large_chunk_pool.iter_mut() {
+            chunk.merge_free_slices(&mut self.slices);
         }
     }
 
     // Best fit algorithm, will find the smallest slice that can contain
     // the slice_size, return None if it can't
-    fn find_free_slice(&self, slice_size: &SliceSize) -> Option<&Slice> {
+    fn find_free_slice(&self, slice_size: &SliceSize) -> Option<SliceId> {
         let mut size_diff_current = usize::MAX;
-        let mut best_fit_slice = None;
-        let &pool = match slice_size {
+        let mut best_fit_slice: Option<SliceId> = None;
+        let pool = match slice_size {
             SliceSize::Small { .. } => &self.small_chunk_pool,
             SliceSize::Large { .. } => &self.large_chunk_pool,
         };
@@ -318,7 +323,7 @@ impl<Storage: ComputeStorage> CachedMemoryMangament<Storage> {
         // Iterate over all the chunks in the right pool,
         // over all the slices inside those chunks
         for chunk in pool.values() {
-            for slice_id in &chunk.slices {
+            for slice_id in chunk.slices.iter() {
                 let slice: &Slice = &self
                     .slices
                     .get(slice_id)
@@ -333,14 +338,14 @@ impl<Storage: ComputeStorage> CachedMemoryMangament<Storage> {
 
                 // If we find slice of the correct size return slice
                 if slice_size.size() == storage_size {
-                    best_fit_slice = Some(slice)
+                    best_fit_slice = Some(*slice_id)
                 }
 
                 // Find the smallest large enough slice that can hold enough
                 // of the given size
                 let size_diff = storage_size - slice_size.size();
                 if size_diff < size_diff_current {
-                    best_fit_slice = Some(slice);
+                    best_fit_slice = Some(*slice_id);
                     size_diff_current = size_diff;
                 }
             }
@@ -349,6 +354,85 @@ impl<Storage: ComputeStorage> CachedMemoryMangament<Storage> {
         best_fit_slice
     }
 
+    // Todo : make it take the old_slice_size and the new_slice_size instead
+    fn split_slice_in_two(
+        &mut self,
+        slice_id: &SliceId,
+        old_slice_size: usize,
+        new_slice_size: &SliceSize,
+        rest_of_slice_size: usize,
+    ) -> SliceId {
+        assert!(old_slice_size == new_slice_size.size() + rest_of_slice_size);
+        let pool = match new_slice_size {
+            SliceSize::Small { .. } => &mut self.small_chunk_pool,
+            SliceSize::Large { .. } => &mut self.large_chunk_pool,
+        };
+        let old_slice = self.slices.get(slice_id).unwrap();
+        let slice_chunk = pool.get_mut(old_slice.chunk.id()).unwrap();
+        let mut splitted_slice: Vec<SliceId> = Vec::new();
+
+        let new_slice_handle = SliceHandle::new();
+        let rest_slice_handle = SliceHandle::new();
+
+        let new_slice_storage = StorageHandle {
+            id: slice_chunk.storage.id.clone(),
+            utilization: StorageUtilization::Slice {
+                offset: old_slice.storage.offset(),
+                size: new_slice_size.size(),
+            },
+        };
+        let rest_slice_storage = StorageHandle {
+            id: slice_chunk.storage.id.clone(),
+            utilization: StorageUtilization::Slice {
+                offset: new_slice_storage.offset(),
+                size: rest_of_slice_size,
+            },
+        };
+        self.slices.insert(
+            *new_slice_handle.id(),
+            Slice::new(
+                new_slice_storage,
+                new_slice_handle.clone(),
+                slice_chunk.handle.clone(),
+            ),
+        );
+        self.slices.insert(
+            *rest_slice_handle.id(),
+            Slice::new(
+                rest_slice_storage,
+                rest_slice_handle.clone(),
+                slice_chunk.handle.clone(),
+            ),
+        );
+
+        for slice in slice_chunk.slices.iter() {
+            if *slice != *slice_id {
+                splitted_slice.push(*slice);
+            } else {
+                splitted_slice.push(*new_slice_handle.id());
+                splitted_slice.push(*rest_slice_handle.id());
+            }
+        }
+
+        slice_chunk.slices = splitted_slice;
+        self.slices.remove(slice_id);
+        *new_slice_handle.id()
+    }
+
+    fn maybe_split_slice(&mut self, actual_slice_size: &SliceSize, slice: &SliceId) -> SliceId {
+        let total_slice_size = self.slices.get(slice).unwrap().storage.size();
+        let remaining: usize =
+            self.slices.get(slice).unwrap().storage.size() - actual_slice_size.size();
+        let should_split = (actual_slice_size.size() < 1024 * 1024 && remaining > 512)
+            || (actual_slice_size.size() >= 1024 * 1024 && remaining > 1024 * 1024);
+
+        if !should_split {
+            return *slice;
+        }
+        self.split_slice_in_two(slice, total_slice_size, actual_slice_size, remaining)
+    }
+
+    // todo : keep an eye on the memory usage
     fn reserve_algorithm(&mut self, size: usize) -> SimpleHandle {
         match self.merge_strategy {
             MergingStrategy::MergeBeforeAllocations => {
@@ -356,136 +440,127 @@ impl<Storage: ComputeStorage> CachedMemoryMangament<Storage> {
             }
         }
 
-        size = self.rounding_strategy.round_size(size);
-        let slice_size = SliceSize::new(size);
-        let free_slice = self.find_free_slice(&slice_size);
+        //TODO : Making rounding_strategy return SliceSize
+        let rounded_size = self.rounding_strategy.round_size(size);
+        let slice_size = SliceSize::new(rounded_size);
+        let maybe_free_slice = self.find_free_slice(&slice_size);
 
-        //
-        match chunk {
-            Some(chunk) => {
-                if size == chunk.storage.size() {
-                    // If there is one of exactly the same size, it reuses it.
-                    SimpleHandle::Chunk(chunk.handle.clone())
-                } else {
-                    // Otherwise creates a slice of the right size upon it, always starting at zero.
-                    self.create_slice(size, chunk.handle.clone())
-                }
-            }
-            // If no chunk available, creates one of exactly the right size.
-            None => self.create_chunk(size),
+        let free_slice: SliceId = match maybe_free_slice {
+            Some(some_free_slice) => some_free_slice,
+            None => self.create_slice_block(&slice_size),
+        };
+
+        self.maybe_split_slice(&slice_size, &free_slice);
+        let slice_handle_post_split = self.slices.get(&free_slice).unwrap();
+
+        SimpleHandle::Slice(slice_handle_post_split.handle.clone())
+    }
+
+    // TODO : make this a function of the Size struct
+    fn determine_allocation_size(size: usize) -> usize {
+        // 1MB
+        if size < 1 * 1024 * 1024 {
+            2 * 1024 * 1024
+        }
+        // 10 MB
+        else if size < 10 * 1024 * 1024 {
+            20 * 1024 * 1024
+        } else {
+            // round to nearest multiple of 2MB
+            let multiple = 2 * 1024 * 1024;
+            ((size + multiple - 1) / multiple) * multiple
         }
     }
 
-    /// Finds the smallest of the free and large enough chunks to fit `size`
-    /// Returns the chunk's id and size.
-    //    fn find_free_chunk(&self, size: usize) -> Option<&Chunk> {
-    //        let mut size_diff_current = usize::MAX;
-    //        let mut current = None;
-    //
-    //        for chunk in self.chunks.values() {
-    //            // If chunk is already used, we do not choose it
-    //            if !chunk.handle.is_free() {
-    //                continue;
-    //            }
-    //
-    //            let storage_size = chunk.storage.size();
-    //
-    //            // If we find a chunk of exactly the right size, we stop searching altogether
-    //            if size == storage_size {
-    //                current = Some(chunk);
-    //                break;
-    //            }
-    //
-    //            // Finds the smallest of the large enough chunks that can accept a slice
-    //            // of the given size
-    //            if self.slice_strategy.can_use_chunk(storage_size, size) {
-    //                let size_diff = storage_size - size;
-    //
-    //                if size_diff < size_diff_current {
-    //                    current = Some(chunk);
-    //                    size_diff_current = size_diff;
-    //                }
-    //            }
-    //        }
-    //
-    //        current
-    //    }
+    /// Creates a new chunk with a singular slice by allocating on the storage.
+    /// Return the slice id inside the chunk
+    fn create_slice_block(&mut self, slice_size: &SliceSize) -> SliceId {
+        let rounded_size: usize = Self::determine_allocation_size(slice_size.size());
+        let chunk_storage_handle = self.storage.alloc(rounded_size);
+        let chunk_handle = ChunkHandle::new();
+        let pool = match slice_size {
+            SliceSize::Small { .. } => &mut self.small_chunk_pool,
+            SliceSize::Large { .. } => &mut self.large_chunk_pool,
+        };
 
-    /// Creates a slice of size `size` upon the given chunk.
-    ///
-    /// For now slices must start at zero, therefore there can be only one per chunk
-    //    fn create_slice(&mut self, size: usize, handle_chunk: ChunkHandle) -> SimpleHandle {
-    //        let chunk = self.chunks.get_mut(handle_chunk.id()).unwrap();
-    //        let handle_slice = SliceHandle::new();
-    //
-    //        let storage = StorageHandle {
-    //            id: chunk.storage.id.clone(),
-    //            utilization: StorageUtilization::Slice { offset: 0, size },
-    //        };
-    //
-    //        if chunk.slices.is_empty() {
-    //            self.slices.insert(
-    //                *handle_slice.id(),
-    //                Slice::new(storage, handle_slice.clone(), handle_chunk.clone()),
-    //            );
-    //        } else {
-    //            panic!("Can't have more than 1 slice yet.");
-    //        }
-    //
-    //        chunk.slices.push(*handle_slice.id());
-    //
-    //        SimpleHandle::Slice(handle_slice)
-    //    }
-
-    /// Creates a chunk of given size by allocating on the storage.
-    fn create_chunk(&mut self, size: usize) -> SimpleHandle {
-        let storage = self.storage.alloc(size);
-        let handle = ChunkHandle::new();
-
-        self.chunks.insert(
-            *handle.id(),
-            Chunk::new(storage, handle.clone(), Vec::new()),
+        pool.insert(
+            *chunk_handle.id(),
+            Chunk::new(chunk_storage_handle, chunk_handle.clone(), Vec::new()),
         );
 
-        SimpleHandle::Chunk(handle)
+        let chunk = pool.get_mut(chunk_handle.id()).unwrap();
+        let slice_handle = SliceHandle::new();
+
+        let slice_storage_handle = StorageHandle {
+            id: chunk.storage.id.clone(),
+            utilization: StorageUtilization::Slice {
+                offset: 0,
+                size: chunk.storage.size(),
+            },
+        };
+
+        self.slices.insert(
+            *slice_handle.id(),
+            Slice::new(
+                slice_storage_handle,
+                slice_handle.clone(),
+                chunk_handle.clone(),
+            ),
+        );
+
+        chunk.slices.push(*slice_handle.id());
+        *slice_handle.id()
     }
 
-    /// Deallocates free chunks and remove them from chunks map.
-    fn cleanup_chunks(&mut self) {
-        let mut ids_to_remove = Vec::new();
-
-        self.chunks.iter().for_each(|(chunk_id, chunk)| {
-            if chunk.handle.is_free() {
-                ids_to_remove.push(*chunk_id);
-            }
-        });
-
-        ids_to_remove
-            .iter()
-            .map(|chunk_id| self.chunks.remove(chunk_id).unwrap())
-            .for_each(|chunk| {
-                self.storage.dealloc(chunk.storage.id);
-            });
-    }
-
-    /// Removes free slices from slice map and corresponding chunks.
-    fn cleanup_slices(&mut self) {
-        let mut ids_to_remove = Vec::new();
-
-        self.slices.iter().for_each(|(slice_id, slice)| {
-            if slice.handle.is_free() {
-                ids_to_remove.push(*slice_id);
-            }
-        });
-
-        ids_to_remove
-            .iter()
-            .map(|slice_id| self.slices.remove(slice_id).unwrap())
-            .for_each(|slice| {
-                let chunk = self.chunks.get_mut(slice.chunk.id()).unwrap();
-                chunk.slices.retain(|id| id != slice.handle.id());
-            });
-    }
+    //    /// Creates a chunk of given size by allocating on the storage.
+    //    fn create_chunk(&mut self, size: usize) -> SimpleHandle {
+    //        let storage = self.storage.alloc(size);
+    //        let handle = ChunkHandle::new();
+    //
+    //        self.chunks.insert(
+    //            *handle.id(),
+    //            Chunk::new(storage, handle.clone(), Vec::new()),
+    //        );
+    //
+    //        SimpleHandle::Chunk(handle)
+    //    }
+    //
+    //    /// Deallocates free chunks and remove them from chunks map.
+    //    fn cleanup_chunks(&mut self) {
+    //        let mut ids_to_remove = Vec::new();
+    //
+    //        self.chunks.iter().for_each(|(chunk_id, chunk)| {
+    //            if chunk.handle.is_free() {
+    //                ids_to_remove.push(*chunk_id);
+    //            }
+    //        });
+    //
+    //        ids_to_remove
+    //            .iter()
+    //            .map(|chunk_id| self.chunks.remove(chunk_id).unwrap())
+    //            .for_each(|chunk| {
+    //                self.storage.dealloc(chunk.storage.id);
+    //            });
+    //    }
+    //
+    //    /// Removes free slices from slice map and corresponding chunks.
+    //    fn cleanup_slices(&mut self) {
+    //        let mut ids_to_remove = Vec::new();
+    //
+    //        self.slices.iter().for_each(|(slice_id, slice)| {
+    //            if slice.handle.is_free() {
+    //                ids_to_remove.push(*slice_id);
+    //            }
+    //        });
+    //
+    //        ids_to_remove
+    //            .iter()
+    //            .map(|slice_id| self.slices.remove(slice_id).unwrap())
+    //            .for_each(|slice| {
+    //                let chunk = self.chunks.get_mut(slice.chunk.id()).unwrap();
+    //                chunk.slices.retain(|id| id != slice.handle.id());
+    //            });
+    //    }
 }
 
 #[cfg(test)]
