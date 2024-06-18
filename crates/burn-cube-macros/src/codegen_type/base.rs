@@ -79,6 +79,7 @@ impl TypeCodegen {
 
         quote! {
             impl #generics_impl #name #generics_use {
+                /// New kernel
                 pub fn new(#args) -> Self {
                     Self {
                         #fields
@@ -174,9 +175,23 @@ impl TypeCodegen {
             }
         }
     }
+
+    pub fn expand_type_impl(&self) -> proc_macro2::TokenStream {
+        let name_expand = &self.name_expand;
+        let type_generics_impl = self.generics.type_definitions();
+        let type_generics_use = self.generics.type_in_use();
+
+        quote! {
+            impl #type_generics_impl Init for #name_expand  #type_generics_use {
+                fn init(self, context: &mut CubeContext) -> Self {
+                    self
+                }
+            }
+        }
+    }
 }
 
-pub(crate) fn generate_cube_type(ast: &syn::DeriveInput) -> TokenStream {
+pub(crate) fn generate_cube_type(ast: &syn::DeriveInput, with_launch: bool) -> TokenStream {
     let name = ast.ident.clone();
     let generics = ast.generics.clone();
     let name_string = name.to_string();
@@ -209,15 +224,26 @@ pub(crate) fn generate_cube_type(ast: &syn::DeriveInput) -> TokenStream {
     let cube_type_impl = codegen.cube_type_impl();
     let arg_settings_impl = codegen.arg_settings_impl();
     let launch_arg_impl = codegen.launch_arg_impl();
+    let expand_type_impl = codegen.expand_type_impl();
 
-    quote! {
-        #expand_ty
-        #launch_ty
-        #launch_new
+    if with_launch {
+        quote! {
+            #expand_ty
+            #launch_ty
+            #launch_new
 
-        #cube_type_impl
-        #arg_settings_impl
-        #launch_arg_impl
+            #cube_type_impl
+            #arg_settings_impl
+            #launch_arg_impl
+            #expand_type_impl
+        }
+        .into()
+    } else {
+        quote! {
+            #expand_ty
+            #cube_type_impl
+            #expand_type_impl
+        }
+        .into()
     }
-    .into()
 }
