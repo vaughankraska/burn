@@ -17,18 +17,27 @@ pub(crate) fn compute_loop<F: Float>(
 ) {
     let tile_size = Comptime::map(config, |c| c.tile_size);
     let block_size_m = Comptime::map(config, |c| c.block_size_m);
-    let block_size_k = Comptime::runtime(Comptime::map(config, |c| c.block_size_k));
+    let block_size_k = Comptime::map(config, |c| c.block_size_k);
     let block_size_n = Comptime::map(config, |c| c.block_size_n);
-    let unroll = Comptime::map(config, |c| c.unroll);
+    // let unroll = Comptime::map(config, |c| c.unroll);
 
     let unit_row = coordinates.unit_row;
     let unit_col = coordinates.unit_col;
 
-    for dot_index in range(0u32, block_size_k, unroll) {
-        let register_m = shared_lhs[(unit_row + dot_index * Comptime::runtime(block_size_m))
-            / Comptime::runtime(tile_size)];
-        let register_n = shared_rhs[(unit_col + dot_index * Comptime::runtime(block_size_n))
-            / Comptime::runtime(tile_size)];
+    for dot_index in range(0u32, Comptime::runtime(block_size_k), Comptime::new(false)) {
+        let lhs_index =
+            (unit_row + dot_index * Comptime::runtime(block_size_m)) / Comptime::runtime(tile_size);
+        let mut register_m = F::vectorized(0., Comptime::get(tile_size));
+        if lhs_index < Comptime::runtime(block_size_k * block_size_m / tile_size) {
+            register_m = shared_lhs[lhs_index];
+        }
+
+        let rhs_index =
+            (unit_col + dot_index * Comptime::runtime(block_size_n)) / Comptime::runtime(tile_size);
+        let mut register_n = F::vectorized(0., Comptime::get(tile_size));
+        if rhs_index < Comptime::runtime(block_size_k * block_size_m / tile_size) {
+            register_n = shared_rhs[rhs_index];
+        }
 
         tile_outer_product::<F>(register_m, register_n, results, config);
     }

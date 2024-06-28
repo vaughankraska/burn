@@ -1,5 +1,7 @@
 use burn_cube::prelude::*;
 
+use crate::tensor;
+
 use super::{base::Coordinates, config::CubeTiling2dConfig};
 
 #[cube]
@@ -172,7 +174,12 @@ fn write_tile_plain<F: Float>(
     let sm_vectorization = Comptime::runtime(tile_size);
 
     for i in range(0u32, Comptime::get(tile_size), unroll) {
-        shared_memory[(sm_position_base + i * sm_stride) / sm_vectorization] = tile[i];
+        if i < Comptime::runtime(tile_size) {
+            shared_memory[(sm_position_base + i * sm_stride) / sm_vectorization] = tile[i];
+        } else {
+            shared_memory[(sm_position_base + i * sm_stride) / sm_vectorization] =
+                F::vectorized(0., Comptime::get(tile_size));
+        }
     }
 }
 
@@ -194,7 +201,15 @@ fn write_tile_transposed<F: Float>(
         for i in range(0u32, Comptime::get(tile_size), unroll) {
             let mut transposed = F::vectorized(0., Comptime::get(tile_size));
             for j in range(0u32, Comptime::get(tile_size), unroll) {
-                transposed[j] = tile[j][i];
+                let mut row = tile[j];
+                if j > Comptime::runtime(tile_size) {
+                    row = F::vectorized(0., Comptime::get(tile_size));
+                }
+                let mut elem = row[i];
+                if i > Comptime::runtime(tile_size) {
+                    elem = F::new(0.);
+                }
+                transposed[j] = elem;
             }
 
             let sm_position = (sm_position_base + i * sm_stride) / sm_vectorization;
@@ -220,6 +235,11 @@ fn read_with_both_checks<F: Float>(
     let dim_vertical = tensor.shape(tensor.rank() - UInt::new(2));
     if dim_vertical > row {
         num_reads = UInt::min(dim_vertical - row, tile_size_runtime);
+    }
+
+    let zeros = F::vectorized(0., Comptime::get(tile_size));
+    for i in range(0u32, Comptime::get(tile_size), Comptime::new(false)) {
+        tile[i] = zeros;
     }
 
     for i in range(0u32, num_reads, Comptime::new(false)) {
@@ -257,6 +277,11 @@ fn read_with_vertical_checks<F: Float>(
     let dim_vertical = tensor.shape(tensor.rank() - UInt::new(2));
     if dim_vertical > row {
         num_reads = UInt::min(dim_vertical - row, tile_size_runtime);
+    }
+
+    let zeros = F::vectorized(0., Comptime::get(tile_size));
+    for i in range(0u32, Comptime::get(tile_size), Comptime::new(false)) {
+        tile[i] = zeros;
     }
 
     for i in range(0u32, num_reads, Comptime::new(false)) {
@@ -345,7 +370,11 @@ fn read_tile_line_with_checks<F: Float>(
         if col >= dim_horizontal {
             tile[i] = F::vectorized(0., Comptime::get(tile_size));
         } else {
-            tile[i] = tensor[position / runtime_vectorization];
+            if position / runtime_vectorization >= tensor.len() {
+                tile[i] = F::vectorized(0., Comptime::get(tile_size));
+            } else {
+                tile[i] = tensor[position / runtime_vectorization];
+            }
         }
     } else {
         let tile_entry = F::vectorized(0., Comptime::get(tile_size));
@@ -387,7 +416,11 @@ fn read_tile_line_without_checks<F: Float>(
     let position = position_base + i * stride;
 
     if tile_size == vectorization_factor {
-        tile[i] = tensor[position / runtime_vectorization];
+        if position / runtime_vectorization >= tensor.len() {
+            tile[i] = F::vectorized(0., Comptime::get(vectorization_factor));
+        } else {
+            tile[i] = tensor[position / runtime_vectorization];
+        }
     } else {
         let tile_entry = F::vectorized(0., Comptime::get(tile_size));
 
@@ -424,9 +457,16 @@ fn read_within_vector<F: Float>(
     let runtime_vectorization = Comptime::runtime(vectorization_factor);
 
     if Comptime::get(is_scalar) {
-        tile_entry[i] = tensor[position + i];
+        if position + i >= tensor.len() {
+            tile_entry[i] = F::new(0.);
+        } else {
+            tile_entry[i] = tensor[position + i];
+        }
     } else {
-        let intermediate = tensor[position / runtime_vectorization + i];
+        let mut intermediate = F::vectorized(0., Comptime::get(vectorization_factor));
+        if position / runtime_vectorization + i < tensor.len() {
+            intermediate = tensor[position / runtime_vectorization + i];
+        }
 
         for j in range(0u32, Comptime::get(vectorization_factor), unroll) {
             tile_entry[i * runtime_vectorization + j] = intermediate[j];

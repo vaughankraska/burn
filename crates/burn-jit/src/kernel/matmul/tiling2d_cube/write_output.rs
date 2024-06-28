@@ -148,7 +148,12 @@ fn write_within_vector<F: Float>(
             output_elem[j] = results[results_pos_m + index];
         }
 
-        out[i + out_position / Comptime::runtime(vectorization_factor)] = output_elem;
+        if i + out_position / Comptime::runtime(vectorization_factor) < out.len() {
+            out[i + out_position / Comptime::runtime(vectorization_factor)] = output_elem;
+        } else {
+            out[i + out_position / Comptime::runtime(vectorization_factor)] =
+                F::vectorized(9999., Comptime::get(vectorization_factor));
+        }
     }
 }
 
