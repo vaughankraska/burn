@@ -200,7 +200,7 @@ fn write_tile_transposed<F: Float>(
     } else {
         for i in range(0u32, Comptime::get(tile_size), unroll) {
             let mut transposed = F::vectorized(0., Comptime::get(tile_size));
-            for j in range(0u32, Comptime::get(tile_size), unroll) {
+            for j in range(0u32, Comptime::get(tile_size), Comptime::new(true)) {
                 let mut row = tile[j];
                 if j > Comptime::runtime(tile_size) {
                     row = F::vectorized(0., Comptime::get(tile_size));
