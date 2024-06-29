@@ -170,9 +170,13 @@ fn write_tile_plain<F: Float>(
     tile_size: Comptime<UInt>,
 ) {
     let sm_vectorization = Comptime::runtime(tile_size);
+    let sm_len = UInt::new(2048) / sm_vectorization;
 
     for i in range(0u32, Comptime::get(tile_size), unroll) {
-        shared_memory[(sm_position_base + i * sm_stride) / sm_vectorization] = tile[i];
+        let sm_pos = (sm_position_base + i * sm_stride) / sm_vectorization;
+        if sm_pos < sm_len {
+            shared_memory[sm_pos] = tile[i];
+        }
     }
 }
 
@@ -185,11 +189,14 @@ fn write_tile_transposed<F: Float>(
     unroll: Comptime<bool>,
     tile_size: Comptime<UInt>,
 ) {
-    let is_scalar = Comptime::map(tile_size, |c| c.val == 1);
+    let sm_is_scalar = Comptime::map(tile_size, |c| c.val == 1);
     let sm_vectorization = Comptime::runtime(tile_size);
+    let sm_len = UInt::new(2048) / sm_vectorization;
 
-    if Comptime::get(is_scalar) {
-        shared_memory[sm_position_base] = tile[0];
+    if Comptime::get(sm_is_scalar) {
+        if sm_position_base < sm_len {
+            shared_memory[sm_position_base] = tile[0];
+        }
     } else {
         for i in range(0u32, Comptime::get(tile_size), unroll) {
             let mut transposed = F::vectorized(0., Comptime::get(tile_size));
@@ -199,8 +206,10 @@ fn write_tile_transposed<F: Float>(
                 transposed[j] = tile[j][i];
             }
 
-            let sm_position = (sm_position_base + i * sm_stride) / sm_vectorization;
-            shared_memory[sm_position] = transposed;
+            let sm_pos = (sm_position_base + i * sm_stride) / sm_vectorization;
+            if sm_pos < sm_len {
+                shared_memory[sm_pos] = transposed;
+            }
         }
     }
 }

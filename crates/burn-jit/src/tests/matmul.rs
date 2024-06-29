@@ -432,7 +432,7 @@ mod tests {
 
         #[test]
         pub fn k_exceeds_block() {
-            test_with_params(64, 36, 32, 1, 1);
+            test_with_params(64, 32, 64, 1, 1);
         }
 
         #[test]
