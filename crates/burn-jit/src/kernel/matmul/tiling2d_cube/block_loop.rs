@@ -24,7 +24,7 @@ pub(crate) fn block_loop<F: Float>(
     let block_size_k = Comptime::map(config, |c| c.block_size_k);
     let mut results = init_results::<F>(config);
 
-    let n_loops = calculate_n_loops::<F>(lhs.shape(lhs.rank() - UInt::new(1)), config);
+    let n_loops = calculate_n_loops::<F>(dims.k, config);
 
     for k in range(0u32, n_loops, Comptime::new(false)) {
         let k = k * Comptime::runtime(block_size_k);
