@@ -5,7 +5,7 @@ use super::config::CmmaConfig;
 
 #[cube(launch)]
 #[allow(unused_mut)]
-pub fn cmma_kernel<F: Float>(
+pub fn cmma_kernel<F: Float, FC: Float>(
     lhs: &Tensor<F>,
     rhs: &Tensor<F>,
     out: &mut Tensor<F>,
@@ -13,8 +13,8 @@ pub fn cmma_kernel<F: Float>(
 ) {
     let dims = get_dims::<F>(lhs, rhs);
     let offsets = calculate_offsets::<F>(lhs, rhs, out, config);
-    let shared_memories = make_load_shared_memories::<F>(config);
-    block_loop::<F>(lhs, rhs, out, offsets, shared_memories, config, dims);
+    let shared_memories = make_shared_memories::<F, FC>(config);
+    block_loop::<F, FC>(lhs, rhs, out, offsets, shared_memories, config, dims);
 }
 
 #[derive(CubeType, Copy, Clone)]
@@ -27,14 +27,16 @@ pub(crate) struct Dimensions {
 }
 
 #[derive(CubeType, Copy, Clone)]
-pub(crate) struct SharedMemories<F: Float> {
-    pub lhs: SharedMemory<F>,
-    pub rhs: SharedMemory<F>,
+pub(crate) struct SharedMemories<F: Float, FC: Float> {
+    pub lhs: SharedMemory<FC>,
+    pub rhs: SharedMemory<FC>,
     pub accumulate: SharedMemory<F>,
 }
 
 #[derive(CubeType, Copy, Clone)]
 /// Not divided by vectorization factor
+///
+/// Note: batch offsets take stride into account, but not the others
 pub(crate) struct Offsets {
     pub batch_lhs: UInt,
     pub batch_rhs: UInt,
@@ -93,29 +95,31 @@ fn calculate_offsets<F: Float>(
         batch_out,
         cube_row,
         cube_col,
-        k: UInt::new(0), // Changes
+        k: UInt::new(0), // Changes during kernel
     }
 }
 
 #[cube]
-fn make_load_shared_memories<F: Float>(config: Comptime<CmmaConfig>) -> SharedMemories<F> {
-    let sm_vec = Comptime::map(config, |c| c.tile_size);
+fn make_shared_memories<F: Float, FC: Float>(
+    config: Comptime<CmmaConfig>,
+) -> SharedMemories<F, FC> {
+    let sm_vec = Comptime::map(config, |c| c.sm_vec);
     let block_size_m = Comptime::map(config, |c| c.block_size_m);
     let block_size_k = Comptime::map(config, |c| c.block_size_k);
     let block_size_n = Comptime::map(config, |c| c.block_size_n);
     let unroll = Comptime::map(config, |c| c.unroll);
 
-    let lhs = SharedMemory::<F>::vectorized(
+    let lhs = SharedMemory::<FC>::vectorized(
         Comptime::get(block_size_k * block_size_m / sm_vec),
         Comptime::get(sm_vec),
     );
 
-    let rhs = SharedMemory::<F>::vectorized(
+    let rhs = SharedMemory::<FC>::vectorized(
         Comptime::get(block_size_k * block_size_n / sm_vec),
         Comptime::get(sm_vec),
     );
 
-    let accumulate = SharedMemory::<F>::vectorized(
+    let mut accumulate = SharedMemory::<F>::vectorized(
         Comptime::get(block_size_m * block_size_n / sm_vec),
         Comptime::get(sm_vec),
     );

@@ -9,12 +9,12 @@ use super::{
 };
 
 #[cube]
-pub(crate) fn block_loop<F: Float>(
+pub(crate) fn block_loop<F: Float, FC: Float>(
     lhs: &Tensor<F>,
     rhs: &Tensor<F>,
     out: &mut Tensor<F>,
     mut offsets: Offsets,
-    shared_memories: SharedMemories<F>,
+    shared_memories: SharedMemories<F, FC>,
     config: Comptime<CmmaConfig>,
     dims: Dimensions,
 ) {
@@ -24,11 +24,11 @@ pub(crate) fn block_loop<F: Float>(
     for k in range(0u32, n_loops, Comptime::new(false)) {
         offsets.k = k * Comptime::runtime(block_size_k);
 
-        load_to_shared_memories::<F>(lhs, rhs, offsets, shared_memories, config, dims);
+        load_to_shared_memories::<F, FC>(lhs, rhs, offsets, shared_memories, config, dims);
 
         sync_units();
 
-        compute_loop::<F>(shared_memories, config);
+        compute_loop::<F, FC>(shared_memories, config);
 
         sync_units();
     }

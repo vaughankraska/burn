@@ -3,8 +3,8 @@ use burn_cube::prelude::*;
 use burn_tensor::Shape;
 
 use super::{
-    config::Tiling2dConfig, init_matmul_output, matmul_autotune, matmul_simple, matmul_tiling_2d,
-    matmul_tiling_2d_cube, matmul_tiling_2d_padded,
+    cmma::matmul_cmma, config::Tiling2dConfig, init_matmul_output, matmul_autotune, matmul_simple,
+    matmul_tiling_2d, matmul_tiling_2d_cube, matmul_tiling_2d_padded,
 };
 
 /// The strategy to be used when launching a matmul kernel.
@@ -25,13 +25,15 @@ pub enum MatmulStrategy {
     Autotune,
     /// A tiling 2d kernel with everything vectorized, and comptime bound checks
     Tiling2dCube(Tiling2dConfig),
+    /// A cooperative warptiling kernel leveraging tensor cores. Not configurable for now
+    Cmma,
 }
 
 #[allow(clippy::derivable_impls)] // Necessary otherwise the feature flags dont' work.
 #[cfg(feature = "autotune")]
 impl Default for MatmulStrategy {
     fn default() -> Self {
-        MatmulStrategy::Autotune
+        MatmulStrategy::Cmma
     }
 }
 
@@ -57,6 +59,10 @@ pub fn matmul<R: JitRuntime, E: FloatElement, const D: usize>(
         MatmulStrategy::Tiling2dCube(config) => {
             let out = init_matmul_output(&lhs, &rhs);
             matmul_tiling_2d_cube(lhs, rhs, out, config)
+        }
+        MatmulStrategy::Cmma => {
+            let out = init_matmul_output(&lhs, &rhs);
+            matmul_cmma(lhs, rhs, out)
         }
         #[cfg(feature = "autotune")]
         MatmulStrategy::Autotune => matmul_autotune(lhs, rhs),

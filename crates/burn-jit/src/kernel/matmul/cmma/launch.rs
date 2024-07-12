@@ -75,7 +75,9 @@ pub fn matmul_cmma<R: JitRuntime, E: FloatElement, const D: usize>(
     let cube_dim = cmma_cube_dim();
     let cube_config = CmmaConfig::new(m, k, n, lhs_transposed, rhs_transposed);
 
-    cmma_kernel::launch::<E::FloatPrimitive, R>(
+    assert!(lhs_vectorization == 4 && rhs_vectorization == 4 && out_vectorization == 4);
+
+    cmma_kernel::launch::<E::FloatPrimitive, <half::f16 as FloatElement>::FloatPrimitive, R>(
         client,
         cube_count,
         cube_dim,
