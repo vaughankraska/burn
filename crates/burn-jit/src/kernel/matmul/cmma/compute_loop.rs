@@ -143,17 +143,22 @@ pub mod tests {
     }
 
     #[cube(launch)]
-    fn compute_loop_test<F: Float>(
-        lhs_tensor: &Tensor<F>,
-        rhs_tensor: &Tensor<F>,
+    fn compute_loop_cmma_test<F: Float, FC: Float>(lhs: &Tensor<FC>, rhs: &Tensor<FC>, result: &mut Array<F>) {
+        cmma_computation(lhs.as_slice(), rhs.as_slice(), result.as_slice_mut());
+    }
+
+    #[cube(launch)]
+    fn compute_loop_test<F: Float, FC: Float>(
+        lhs_tensor: &Tensor<FC>,
+        rhs_tensor: &Tensor<FC>,
         accumulate_array: &mut Array<F>,
         m: Comptime<UInt>,
         k: Comptime<UInt>,
         n: Comptime<UInt>,
         config: Comptime<CmmaConfig>,
     ) {
-        let mut lhs = SharedMemory::<F>::new(Comptime::get(m * k));
-        let mut rhs = SharedMemory::<F>::new(Comptime::get(k * n));
+        let mut lhs = SharedMemory::<FC>::new(Comptime::get(m * k));
+        let mut rhs = SharedMemory::<FC>::new(Comptime::get(k * n));
         let mut accumulate = SharedMemory::<F>::new(Comptime::get(m * n));
         for i in range(0u32, Comptime::get(m * k), Comptime::new(false)) {
             lhs[i] = lhs_tensor[i];
@@ -229,6 +234,56 @@ pub mod tests {
     }
 
     /// Exported test
+    pub fn compute_loop_cmma_warp_test<R: JitRuntime>(device: &R::Device) {
+        let lhs = range_tensor_generic::<f16, R>(16, 16, device);
+        let rhs = range_tensor_generic::<f16, R>(16, 16, device);
+        let results = create_empty::<R>(16, 16, device);
+        let cube_dim = CubeDim::new(1, 32, 1);
+        let cube_count = CubeCount::Static(1, 1, 1);
+
+        compute_loop_cmma_test::launch::<F32, F16, R>(
+            lhs.client.clone(),
+            cube_count,
+            cube_dim,
+            TensorArg::new(&lhs.handle, &lhs.strides, &lhs.shape.dims),
+            TensorArg::new(&rhs.handle, &rhs.strides, &rhs.shape.dims),
+            ArrayArg::new(&results, 256),
+        );
+
+        let expected = &[
+            19840., 19960., 20080., 20200., 20320., 20440., 20560., 20680., 20800., 20920., 21040.,
+            21160., 21280., 21400., 21520., 21640., 50560., 50936., 51312., 51688., 52064., 52440.,
+            52816., 53192., 53568., 53944., 54320., 54696., 55072., 55448., 55824., 56200., 81280.,
+            81912., 82544., 83176., 83808., 84440., 85072., 85704., 86336., 86968., 87600., 88232.,
+            88864., 89496., 90128., 90760., 112000., 112888., 113776., 114664., 115552., 116440.,
+            117328., 118216., 119104., 119992., 120880., 121768., 122656., 123544., 124432.,
+            125320., 142720., 143864., 145008., 146152., 147296., 148440., 149584., 150728.,
+            151872., 153016., 154160., 155304., 156448., 157592., 158736., 159880., 173440.,
+            174840., 176240., 177640., 179040., 180440., 181840., 183240., 184640., 186040.,
+            187440., 188840., 190240., 191640., 193040., 194440., 204160., 205816., 207472.,
+            209128., 210784., 212440., 214096., 215752., 217408., 219064., 220720., 222376.,
+            224032., 225688., 227344., 229000., 234880., 236792., 238704., 240616., 242528.,
+            244440., 246352., 248264., 250176., 252088., 254000., 255912., 257824., 259736.,
+            261648., 263560., 265600., 267768., 269936., 272104., 274272., 276440., 278608.,
+            280776., 282944., 285112., 287280., 289448., 291616., 293784., 295952., 298120.,
+            296320., 298744., 301168., 303592., 306016., 308440., 310864., 313288., 315712.,
+            318136., 320560., 322984., 325408., 327832., 330256., 332680., 327040., 329720.,
+            332400., 335080., 337760., 340440., 343120., 345800., 348480., 351160., 353840.,
+            356520., 359200., 361880., 364560., 367240., 357760., 360696., 363632., 366568.,
+            369504., 372440., 375376., 378312., 381248., 384184., 387120., 390056., 392992.,
+            395928., 398864., 401800., 388480., 391672., 394864., 398056., 401248., 404440.,
+            407632., 410824., 414016., 417208., 420400., 423592., 426784., 429976., 433168.,
+            436360., 419200., 422648., 426096., 429544., 432992., 436440., 439888., 443336.,
+            446784., 450232., 453680., 457128., 460576., 464024., 467472., 470920., 449920.,
+            453624., 457328., 461032., 464736., 468440., 472144., 475848., 479552., 483256.,
+            486960., 490664., 494368., 498072., 501776., 505480., 480640., 484600., 488560.,
+            492520., 496480., 500440., 504400., 508360., 512320., 516280., 520240., 524200.,
+            528160., 532120., 536080., 540040.,
+        ];
+        assert_equals::<R>(results, expected, device);
+    }
+
+    /// Exported test
     pub fn compute_loop_k_test<R: JitRuntime>(device: &R::Device) {
         let lhs = range_tensor::<R>(16, 32, device);
         let rhs = range_tensor::<R>(32, 16, device);
@@ -250,7 +305,7 @@ pub mod tests {
             unroll: false,
         };
 
-        compute_loop_test::launch::<F32, R>(
+        compute_loop_test::launch::<F32, F32, R>(
             lhs.client.clone(),
             cube_count,
             cube_dim,
@@ -322,7 +377,7 @@ pub mod tests {
             unroll: false,
         };
 
-        compute_loop_test::launch::<F32, R>(
+        compute_loop_test::launch::<F32, F32, R>(
             lhs.client.clone(),
             cube_count,
             cube_dim,
