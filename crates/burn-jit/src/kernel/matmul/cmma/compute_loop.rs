@@ -71,7 +71,7 @@ pub fn cmma_computation<F: Float, FC: Float>(
         16,
         16,
         16,
-        cmma::MatrixLayout::ColMajor,
+        cmma::MatrixLayout::RowMajor,
     );
     let c = cmma::Matrix::<F>::new(
         cmma::MatrixIdent::Accumulator,

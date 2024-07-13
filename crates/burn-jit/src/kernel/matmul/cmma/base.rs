@@ -119,22 +119,20 @@ fn make_shared_memories<F: Float, FC: Float>(
     //     Comptime::get(sm_vec),
     // );
 
+    // let mut accumulate = SharedMemory::<F>::vectorized(
+    //     Comptime::get(block_size_m * block_size_n / sm_vec),
+    //     Comptime::get(sm_vec),
+    // );
+
     let lhs = SharedMemory::<FC>::new(Comptime::get(block_size_k * block_size_m));
 
     let rhs = SharedMemory::<FC>::new(Comptime::get(block_size_k * block_size_n));
 
-    let mut accumulate = SharedMemory::<F>::vectorized(
-        Comptime::get(block_size_m * block_size_n / sm_vec),
-        Comptime::get(sm_vec),
-    );
+    let mut accumulate = SharedMemory::<F>::new(Comptime::get(block_size_m * block_size_n));
 
     // Init accumulation to 0
-    for i in range(
-        0u32,
-        Comptime::get(block_size_m * block_size_n / sm_vec),
-        unroll,
-    ) {
-        accumulate[i] = F::vectorized(0., Comptime::get(sm_vec));
+    for i in range(0u32, Comptime::get(block_size_m * block_size_n), unroll) {
+        accumulate[i] = F::new(0.);
     }
 
     SharedMemories {

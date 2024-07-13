@@ -59,7 +59,16 @@ pub(crate) fn write_to_output<F: Float>(
         let out_write_pos_1 =
             out_write_tile_offset + unit_write_row_1 * out_stride + unit_write_col;
 
-        out[out_write_pos_0] = accumulate[read_pos_0];
-        out[out_write_pos_1] = accumulate[read_pos_1];
+        let mut a = F::vectorized_empty(Comptime::get(sm_vec));
+        for i in range(0u32, 4u32, Comptime::new(true)) {
+            a[i] = accumulate[read_pos_0 * UInt::new(4) + i];
+        }
+        out[out_write_pos_0] = a;
+
+        let mut b = F::vectorized_empty(Comptime::get(sm_vec));
+        for i in range(0u32, 4u32, Comptime::new(true)) {
+            b[i] = accumulate[read_pos_0 * UInt::new(4) + i];
+        }
+        out[out_write_pos_1] = b;
     }
 }
