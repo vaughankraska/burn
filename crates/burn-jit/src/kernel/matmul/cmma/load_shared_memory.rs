@@ -29,8 +29,9 @@ pub(crate) fn load_to_shared_memories<F: Float, FC: Float>(
     let lhs_stride = dims.k;
     let rhs_stride = dims.n;
 
-    let within_tile_row_offset = SUBCUBE_DIM / sm_vec_r; // assuming subcube_dim is 32 -> 8
-    let within_sm_row_offset = SUBCUBE_DIM / Comptime::runtime(tile_size); // assuming subcube_dim is 32 -> 2
+    let subcube_dim =UInt::new(32);
+    let within_tile_row_offset = subcube_dim / sm_vec_r; // assuming subcube_dim is 32 -> 8
+    let within_sm_row_offset = subcube_dim / Comptime::runtime(tile_size); // assuming subcube_dim is 32 -> 2
     let subcube_id = UNIT_POS_X;
     let id_within_subcube = UNIT_POS_Y;
 
