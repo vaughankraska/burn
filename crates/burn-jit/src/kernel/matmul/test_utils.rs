@@ -4,20 +4,20 @@ use burn_cube::CubeElement;
 use crate::{
     kernel::matmul::config::{CubeTiling2dConfig, Tiling2dConfig},
     tensor::JitTensor,
-    JitBackend, JitRuntime,
+    FloatElement, JitBackend, JitRuntime,
 };
 
 pub(crate) const TILE_SIZE: usize = 4;
 
-pub(crate) fn range_tensor_generic<F: JitElement, R: JitRuntime>(
+pub(crate) fn range_tensor_generic<F: FloatElement, R: JitRuntime>(
     x: usize,
     y: usize,
     device: &R::Device,
 ) -> JitTensor<R, F, 2> {
-    type B<R> = JitBackend<R, F, i32>;
+    type B<R, F> = JitBackend<R, F, i32>;
 
     let n_elements = (x * y) as i64;
-    burn_tensor::Tensor::<B<R>, 1, burn_tensor::Int>::arange(0..n_elements, device)
+    burn_tensor::Tensor::<B<R, F>, 1, burn_tensor::Int>::arange(0..n_elements, device)
         .reshape([x, y])
         .float()
         .into_primitive()

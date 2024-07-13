@@ -129,8 +129,12 @@ pub fn cmma_computation<F: Float, FC: Float>(
 #[cfg(feature = "export_tests")]
 /// Compute loop exported tests
 pub mod tests {
+    use half::f16;
+
     use crate::{
-        kernel::matmul::test_utils::{assert_equals, create_empty, range_tensor},
+        kernel::matmul::test_utils::{
+            assert_equals, create_empty, range_tensor, range_tensor_generic,
+        },
         JitRuntime,
     };
 
@@ -143,7 +147,11 @@ pub mod tests {
     }
 
     #[cube(launch)]
-    fn compute_loop_cmma_test<F: Float, FC: Float>(lhs: &Tensor<FC>, rhs: &Tensor<FC>, result: &mut Array<F>) {
+    fn compute_loop_cmma_test<F: Float, FC: Float>(
+        lhs: &Tensor<FC>,
+        rhs: &Tensor<FC>,
+        result: &mut Array<F>,
+    ) {
         cmma_computation(lhs.as_slice(), rhs.as_slice(), result.as_slice_mut());
     }
 
