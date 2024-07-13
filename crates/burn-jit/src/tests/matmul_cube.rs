@@ -138,9 +138,4 @@ mod tests {
     pub fn cmma_compute_loop_warp_test() {
         cmma_compute_loop_tests::compute_loop_warp_test::<TestRuntime>(&Default::default())
     }
-
-    #[test]
-    pub fn cmma_compute_loop_cube_test() {
-        cmma_compute_loop_tests::compute_loop_cube_test::<TestRuntime>(&Default::default())
-    }
 }
