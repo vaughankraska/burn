@@ -87,9 +87,9 @@ impl CompilerRepresentation for ComputeShader {
 
 impl Display for ComputeShader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.wmma_activated {
+       // if self.wmma_activated {
             f.write_str("#include <mma.h>\nusing namespace nvcuda;\n")?;
-        }
+        //}
 
         f.write_fmt(format_args!(
             "
