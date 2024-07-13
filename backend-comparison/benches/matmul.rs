@@ -29,7 +29,7 @@ impl<B: Backend, const D: usize> Benchmark for MatmulBenchmark<B, D> {
     }
 
     fn execute(&self, (lhs, rhs): Self::Args) {
-        lhs.clone().transpose().matmul(rhs.clone());
+        lhs.clone().matmul(rhs.clone());
     }
 
     fn prepare(&self) -> Self::Args {
@@ -53,10 +53,10 @@ fn bench<B: Backend>(
 ) {
     const D: usize = 3;
     let batch_size = 32;
-    let m = 256;
+    let m = 1024;
     let k = 1024;
-    let n = 256;
-    let shape_lhs = [batch_size, k, m].into();
+    let n = 1024;
+    let shape_lhs = [batch_size, m, k].into();
     let shape_rhs = [batch_size, k, n].into();
 
     let benchmark = MatmulBenchmark::<B, D>::new(shape_lhs, shape_rhs, device.clone());

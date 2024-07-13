@@ -62,8 +62,8 @@ pub fn matmul_cmma<R: JitRuntime, E: FloatElement, const D: usize>(
     };
 
     let lhs_vectorization = match lhs_transposed {
-        true => vectorization(m),
-        false => 1,
+        true => panic!(),
+        false => vectorization(k),
     };
     let rhs_vectorization = match rhs_transposed {
         true => 1,
