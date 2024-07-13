@@ -38,7 +38,7 @@ pub mod tests {
     use crate::{
         kernel::matmul::{
             config::CubeTiling2dConfig,
-            tiling2d_cube::test_utils::{
+            test_utils::{
                 assert_equals, create_empty, make_config, range_tensor, range_tensor_transposed,
                 TILE_SIZE,
             },

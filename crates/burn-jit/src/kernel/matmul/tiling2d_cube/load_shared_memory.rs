@@ -168,7 +168,7 @@ fn load_rhs_plain<F: Float, L: Loader<F>>(
 /// Exported tests for loading to shared memory
 pub mod tests {
     use crate::kernel::matmul::tiling2d_cube::load_shared_memory::LoadInfoExpand;
-    use crate::kernel::matmul::tiling2d_cube::test_utils::{
+    use crate::kernel::matmul::test_utils::{
         assert_equals, create_empty, make_config, range_tensor, TILE_SIZE,
     };
     use crate::kernel::matmul::tiling2d_cube::tile::loader::TileLoader;

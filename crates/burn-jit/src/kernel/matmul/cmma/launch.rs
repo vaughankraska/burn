@@ -77,7 +77,8 @@ pub fn matmul_cmma<R: JitRuntime, E: FloatElement, const D: usize>(
 
     assert!(lhs_vectorization == 4 && rhs_vectorization == 4 && out_vectorization == 4);
 
-    cmma_kernel::launch::<E::FloatPrimitive, <half::f16 as FloatElement>::FloatPrimitive, R>(
+    // cmma_kernel::launch::<E::FloatPrimitive, <half::f16 as FloatElement>::FloatPrimitive, R>(
+    cmma_kernel::launch::<E::FloatPrimitive, E::FloatPrimitive, R>( // TMP for WGPU testing
         client,
         cube_count,
         cube_dim,

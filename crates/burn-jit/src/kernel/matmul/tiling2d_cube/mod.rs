@@ -4,8 +4,6 @@ mod compute_loop;
 mod launch;
 mod load_shared_memory;
 mod outer_product;
-#[cfg(feature = "export_tests")]
-mod test_utils;
 mod tile;
 mod write_output;
 

@@ -1,7 +1,13 @@
 mod base;
+#[cfg(not(feature = "export_tests"))]
 mod cmma;
+#[cfg(feature = "export_tests")]
+/// Cmma cube functions
+pub mod cmma;
 mod config;
 mod simple;
+#[cfg(feature = "export_tests")]
+mod test_utils;
 mod tiling2d;
 #[cfg(not(feature = "export_tests"))]
 mod tiling2d_cube;

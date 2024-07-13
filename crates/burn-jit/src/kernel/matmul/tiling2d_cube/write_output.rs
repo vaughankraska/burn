@@ -64,12 +64,12 @@ pub(crate) fn write_to_output<F: Float, W: OutputWriter<F>>(
 /// Exported tests for write output
 pub mod tests {
     use crate::{
-        kernel::matmul::tiling2d_cube::{
+        kernel::matmul::{
             test_utils::{
                 assert_equals, make_config, range_tensor, range_tensor_transposed, zeros_tensor,
                 TILE_SIZE,
             },
-            tile::writer::TileWriter,
+            tiling2d_cube::tile::writer::TileWriter,
         },
         JitRuntime,
     };
