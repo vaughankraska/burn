@@ -87,9 +87,21 @@ pub(crate) fn load_to_shared_memories<F: Float, FC: Float>(
 
     // READ/WRITE
 
-    shared.lhs[lhs_write_pos_0] = FC::cast_from(lhs[lhs_read_pos_0]);
-    shared.lhs[lhs_write_pos_1] = FC::cast_from(lhs[lhs_read_pos_1]);
-
-    shared.rhs[rhs_write_pos_0] = FC::cast_from(rhs[rhs_read_pos_0]);
-    shared.rhs[rhs_write_pos_1] = FC::cast_from(rhs[rhs_read_pos_1]);
+    let a = lhs[lhs_read_pos_0];
+    let b = lhs[lhs_read_pos_1];
+    // TODO bug: because c is used in closures above, can't be used here
+    let e = rhs[rhs_read_pos_0];
+    let d = rhs[rhs_read_pos_1];
+    for i in range(0u32, 4u32, Comptime::new(true)) {
+        shared.lhs[lhs_write_pos_0 * UInt::new(4) + i] = FC::cast_from(a[i]);
+    }
+    for i in range(0u32, 4u32, Comptime::new(true)) {
+        shared.lhs[lhs_write_pos_1 * UInt::new(4) + i] = FC::cast_from(b[i]);
+    }
+    for i in range(0u32, 4u32, Comptime::new(true)) {
+        shared.rhs[rhs_write_pos_0 * UInt::new(4) + i] = FC::cast_from(e[i]);
+    }
+    for i in range(0u32, 4u32, Comptime::new(true)) {
+        shared.rhs[rhs_write_pos_1 * UInt::new(4) + i] = FC::cast_from(d[i]);
+    }
 }
