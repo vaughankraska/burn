@@ -1,7 +1,9 @@
 #[burn_tensor_testgen::testgen(matmul_cube)]
 mod tests {
     use super::*;
-    use burn_jit::kernel::matmul::cmma::{cmma_compute_loop_tests, cmma_load_shared_memory_tests};
+    use burn_jit::kernel::matmul::cmma::{
+        cmma_compute_loop_tests, cmma_load_shared_memory_tests, cmma_write_output_tests,
+    };
     use burn_jit::kernel::matmul::tiling2d_cube::{
         compute_loop_tests, load_shared_memory_tests, outer_product_tests, write_output_tests,
     };
@@ -184,5 +186,43 @@ mod tests {
         cmma_load_shared_memory_tests::load_shared_memory_rhs_second_warp_test::<TestRuntime>(
             &Default::default(),
         )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_lhs_third_warp_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_lhs_third_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_rhs_third_warp_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_rhs_third_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_lhs_k_offset_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_lhs_k_offset_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_rhs_k_offset_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_rhs_k_offset_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_write_output_unit_test() {
+        cmma_write_output_tests::cmma_write_output_unit_test::<TestRuntime>(&Default::default())
+    }
+
+    #[test]
+    pub fn cmma_write_output_warp_test() {
+        cmma_write_output_tests::cmma_write_output_warp_test::<TestRuntime>(&Default::default())
     }
 }
