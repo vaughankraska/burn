@@ -33,8 +33,8 @@ pub enum MatmulStrategy {
 #[cfg(feature = "autotune")]
 impl Default for MatmulStrategy {
     fn default() -> Self {
-        // MatmulStrategy::Tiling2d(Tiling2dConfig::default())
-        MatmulStrategy::Cmma
+        MatmulStrategy::Tiling2d(Tiling2dConfig::default())
+        // MatmulStrategy::Cmma
     }
 }
 
