@@ -225,4 +225,18 @@ mod tests {
     pub fn cmma_write_output_warp_test() {
         cmma_write_output_tests::cmma_write_output_warp_test::<TestRuntime>(&Default::default())
     }
+
+    #[test]
+    pub fn cmma_write_output_second_warp_test() {
+        cmma_write_output_tests::cmma_write_output_second_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_write_output_third_fourth_warps_test() {
+        cmma_write_output_tests::cmma_write_output_third_fourth_warps_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
 }
