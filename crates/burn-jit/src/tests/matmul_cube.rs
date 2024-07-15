@@ -142,6 +142,20 @@ mod tests {
     }
 
     #[test]
+    pub fn cmma_compute_loop_cmma_offseted_warp_test() {
+        cmma_compute_loop_tests::compute_loop_cmma_offseted_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_compute_loop_mimic_offseted_warp_test() {
+        cmma_compute_loop_tests::compute_loop_mimic_offseted_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
     pub fn cmma_compute_loop_cmma_warp_test() {
         cmma_compute_loop_tests::compute_loop_cmma_warp_test::<TestRuntime>(&Default::default())
     }
