@@ -105,6 +105,11 @@ pub mod tests {
             k: UInt::new(0),
         };
 
+        let out_vec = Comptime::vectorization(out);
+        for i in range(0u32, (k * n)/Comptime::runtime(out_vec), Comptime::new(false)) {
+            out[i] = F::vectorized(0., Comptime::get(out_vec));
+        }
+
         let mut accumulate = SharedMemory::<F>::new(4096);
         for i in range(0u32, 4096u32, Comptime::new(false)) {
             accumulate[i] = acc_sm_arr[i];
@@ -123,7 +128,8 @@ pub mod tests {
     pub fn cmma_write_output_unit_test<R: JitRuntime>(device: &R::Device) {
         let k = 16;
         let n = 32;
-        let out = zeros_tensor::<R>(k, n, device);
+        // TODO should be zeros_tensor, rather than range then put back to 0, but fails on cuda
+        let out = range_tensor::<R>(k, n, device);
         let acc_sm = range_tensor::<R>(64, 64, device);
         let cube_dim = CubeDim::new(1, 1, 1);
         let cube_count: CubeCount<R::Server> = CubeCount::Static(1, 1, 1);
@@ -193,7 +199,7 @@ pub mod tests {
     pub fn cmma_write_output_warp_test<R: JitRuntime>(device: &R::Device) {
         let k = 16;
         let n = 32;
-        let out = zeros_tensor::<R>(k, n, device);
+        let out = range_tensor::<R>(k, n, device);
         let acc_sm = range_tensor::<R>(64, 64, device);
         let cube_dim = CubeDim::new(1, 32, 1);
         let cube_count: CubeCount<R::Server> = CubeCount::Static(1, 1, 1);
@@ -274,7 +280,7 @@ pub mod tests {
     pub fn cmma_write_output_second_warp_test<R: JitRuntime>(device: &R::Device) {
         let k = 16;
         let n = 64;
-        let out = zeros_tensor::<R>(k, n, device);
+        let out = range_tensor::<R>(k, n, device);
         let acc_sm = range_tensor::<R>(64, 64, device);
         let cube_dim = CubeDim::new(2, 32, 1);
         let cube_count: CubeCount<R::Server> = CubeCount::Static(1, 1, 1);
@@ -398,7 +404,7 @@ pub mod tests {
     pub fn cmma_write_output_third_fourth_warps_test<R: JitRuntime>(device: &R::Device) {
         let k = 32;
         let n = 64;
-        let out = zeros_tensor::<R>(k, n, device);
+        let out = range_tensor::<R>(k, n, device);
         let acc_sm = range_tensor::<R>(64, 64, device);
         let cube_dim = CubeDim::new(4, 32, 1);
         let cube_count: CubeCount<R::Server> = CubeCount::Static(1, 1, 1);

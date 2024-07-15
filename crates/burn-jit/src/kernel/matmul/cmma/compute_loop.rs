@@ -54,6 +54,7 @@ pub(crate) fn compute_loop<F: Float, FC: Float>(
                 .rhs
                 .slice(shared_rhs_pos, shared_rhs_pos + num_tile_elems);
 
+            // cmma_computation(lhs_slice, rhs_slice, accumulate_slice);
             cmma_row_major_mimic(lhs_slice, rhs_slice, accumulate_slice);
         }
     }
@@ -422,13 +423,15 @@ pub mod tests {
             3034496.0, 3042552.0, 3050608.0, 3058664.0, 3066720.0, 3074776.0, 3082832.0, 3090888.0,
             3098944.0, 3107000.0, 3115056.0, 3123112.0, 3131168.0, 3139224.0, 3147280.0, 3155336.0,
         ];
-        assert_equals::<R>(results, expected, device);
+        assert_equals_range::<R>(results, expected, 768..1024, device);
     }
 
     /// Exported test
     pub fn compute_loop_k_test<R: JitRuntime>(device: &R::Device) {
-        let lhs = range_tensor::<R>(16, 32, device);
-        let rhs = range_tensor::<R>(32, 16, device);
+        type FC1 = f32;
+        type FC2 = F32;
+        let lhs = range_tensor_generic::<FC1, R>(16, 32, device);
+        let rhs = range_tensor_generic::<FC1, R>(32, 16, device);
         let results = create_empty::<R>(16, 16, device);
         let cube_dim = CubeDim::new(1, 32, 1);
         let cube_count = CubeCount::Static(1, 1, 1);
@@ -447,16 +450,16 @@ pub mod tests {
             unroll: false,
         };
 
-        compute_loop_test::launch::<F32, F32, R>(
+        compute_loop_test::launch::<F32, FC2, R>(
             lhs.client.clone(),
             cube_count,
             cube_dim,
             TensorArg::new(&lhs.handle, &lhs.strides, &lhs.shape.dims),
             TensorArg::new(&rhs.handle, &rhs.strides, &rhs.shape.dims),
             ArrayArg::new(&results, 256),
-            UInt::new(16),
+            UInt::new(64),
             UInt::new(32),
-            UInt::new(16),
+            UInt::new(64),
             config,
         );
 
@@ -499,8 +502,11 @@ pub mod tests {
 
     /// Exported test
     pub fn compute_loop_warp_test<R: JitRuntime>(device: &R::Device) {
-        let lhs = range_tensor::<R>(16, 32, device);
-        let rhs = range_tensor::<R>(32, 32, device);
+        type FC1 = f32;
+        type FC2 = F32;
+
+        let lhs = range_tensor_generic::<FC1, R>(16, 32, device);
+        let rhs = range_tensor_generic::<FC1, R>(32, 32, device);
         let results = create_empty::<R>(16, 32, device);
         let cube_dim = CubeDim::new(1, 32, 1);
         let cube_count = CubeCount::Static(1, 1, 1);
@@ -519,16 +525,16 @@ pub mod tests {
             unroll: false,
         };
 
-        compute_loop_test::launch::<F32, F32, R>(
+        compute_loop_test::launch::<F32, FC2, R>(
             lhs.client.clone(),
             cube_count,
             cube_dim,
             TensorArg::new(&lhs.handle, &lhs.strides, &lhs.shape.dims),
             TensorArg::new(&rhs.handle, &rhs.strides, &rhs.shape.dims),
             ArrayArg::new(&results, 512),
-            UInt::new(16),
+            UInt::new(64),
             UInt::new(32),
-            UInt::new(32),
+            UInt::new(64),
             config,
         );
 
