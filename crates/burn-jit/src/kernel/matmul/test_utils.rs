@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use burn_compute::server::Handle;
 use burn_cube::CubeElement;
 
@@ -91,6 +93,20 @@ pub(crate) fn assert_equals<R: JitRuntime>(
     let actual = f32::from_bytes(&actual);
 
     assert_eq!(actual, expected);
+}
+
+pub(crate) fn assert_equals_range<R: JitRuntime>(
+    output: Handle<<R as JitRuntime>::JitServer>,
+    expected: &[f32],
+    range: Range<usize>,
+    device: &R::Device,
+) {
+    let client = R::client(device);
+
+    let actual = client.read(output.binding());
+    let actual = f32::from_bytes(&actual);
+
+    assert_eq!(&actual[range], expected);
 }
 
 pub(crate) fn make_config(m: usize, k: usize, n: usize) -> CubeTiling2dConfig {

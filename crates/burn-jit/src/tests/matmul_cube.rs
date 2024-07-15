@@ -1,7 +1,7 @@
 #[burn_tensor_testgen::testgen(matmul_cube)]
 mod tests {
     use super::*;
-    use burn_jit::kernel::matmul::cmma::cmma_compute_loop_tests;
+    use burn_jit::kernel::matmul::cmma::{cmma_compute_loop_tests, cmma_load_shared_memory_tests};
     use burn_jit::kernel::matmul::tiling2d_cube::{
         compute_loop_tests, load_shared_memory_tests, outer_product_tests, write_output_tests,
     };
@@ -142,5 +142,47 @@ mod tests {
     #[test]
     pub fn cmma_compute_loop_cmma_warp_test() {
         cmma_compute_loop_tests::compute_loop_cmma_warp_test::<TestRuntime>(&Default::default())
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_lhs_unit_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_lhs_unit_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_rhs_unit_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_rhs_unit_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_lhs_warp_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_lhs_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_rhs_warp_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_rhs_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_lhs_second_warp_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_lhs_second_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
+    }
+
+    #[test]
+    pub fn cmma_load_shared_memory_rhs_second_warp_test() {
+        cmma_load_shared_memory_tests::load_shared_memory_rhs_second_warp_test::<TestRuntime>(
+            &Default::default(),
+        )
     }
 }
