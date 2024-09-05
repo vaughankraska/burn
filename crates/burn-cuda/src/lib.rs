@@ -5,10 +5,10 @@ pub use cubecl::cuda::CudaDevice;
 use cubecl::cuda::CudaRuntime;
 
 #[cfg(not(feature = "fusion"))]
-pub type Cuda<F = f32, I = i32> = JitBackend<CudaRuntime, F, I>;
+pub type Cuda<F = half::f16, I = i32> = JitBackend<CudaRuntime, F, I>;
 
 #[cfg(feature = "fusion")]
-pub type Cuda<F = f32, I = i32> = burn_fusion::Fusion<JitBackend<CudaRuntime, F, I>>;
+pub type Cuda<F = half::f16, I = i32> = burn_fusion::Fusion<JitBackend<CudaRuntime, F, I>>;
 
 #[cfg(test)]
 mod tests {
