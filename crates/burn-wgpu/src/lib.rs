@@ -14,15 +14,6 @@ pub use burn_jit::{FloatElement, IntElement};
 pub use cubecl::ir::CubeDim;
 pub use cubecl::wgpu::*;
 
-pub type Wgsl = cubecl::wgpu::WgslCompiler;
-#[cfg(feature = "spirv")]
-pub type SpirV = cubecl::wgpu::spirv::VkSpirvCompiler;
-
-#[cfg(feature = "spirv")]
-type Compiler = SpirV;
-#[cfg(not(feature = "spirv"))]
-type Compiler = Wgsl;
-
 #[cfg(feature = "fusion")]
 /// Tensor backend that uses the wgpu crate for executing GPU compute shaders.
 ///
@@ -55,8 +46,8 @@ type Compiler = Wgsl;
 ///
 /// You can disable the `fusion` feature flag to remove that functionality, which might be
 /// necessary on `wasm` for now.
-pub type Wgpu<F = f32, I = i32, C = Compiler> =
-    burn_fusion::Fusion<JitBackend<cubecl::wgpu::WgpuRuntime<C>, F, I>>;
+pub type Wgpu<F = f32, I = i32> =
+    burn_fusion::Fusion<JitBackend<cubecl::wgpu::WgpuRuntime<cubecl::wgpu::WgslCompiler>, F, I>>;
 
 #[cfg(not(feature = "fusion"))]
 /// Tensor backend that uses the wgpu crate for executing GPU compute shaders.
@@ -90,12 +81,32 @@ pub type Wgpu<F = f32, I = i32, C = Compiler> =
 ///
 /// You can enable the `fusion` feature flag to add that functionality, which might improve
 /// performance.
-pub type Wgpu<F = f32, I = i32, C = Compiler> = JitBackend<cubecl::wgpu::WgpuRuntime<C>, F, I>;
+pub type Wgpu<F = f32, I = i32> =
+    JitBackend<cubecl::wgpu::WgpuRuntime<cubecl::wgpu::WgslCompiler>, F, I>;
+
+#[cfg(all(feature = "spirv", not(feature = "fusion")))]
+pub type Vulkan<F = f32, I = i32> =
+    JitBackend<cubecl::wgpu::WgpuRuntime<cubecl::wgpu::spirv::VkSpirvCompiler>, F, I>;
+
+#[cfg(all(feature = "spirv", feature = "fusion"))]
+pub type Vulkan<F = f32, I = i32> = burn_fusion::Fusion<
+    JitBackend<cubecl::wgpu::WgpuRuntime<cubecl::wgpu::spirv::VkSpirvCompiler>, F, I>,
+>;
 
 #[cfg(test)]
 mod tests {
-    use burn_jit::JitBackend;
-    pub type TestRuntime = cubecl::wgpu::WgpuRuntime<super::Compiler>;
+    mod wgsl {
+        use burn_jit::JitBackend;
+        pub type TestRuntime = cubecl::wgpu::WgpuRuntime<cubecl::wgpu::WgslCompiler>;
 
-    burn_jit::testgen_all!();
+        burn_jit::testgen_all!();
+    }
+
+    #[cfg(feature = "spirv")]
+    mod vulkan {
+        use burn_jit::JitBackend;
+        pub type TestRuntime = cubecl::wgpu::WgpuRuntime<cubecl::wgpu::spirv::VkSpirvCompiler>;
+
+        burn_jit::testgen_all!();
+    }
 }

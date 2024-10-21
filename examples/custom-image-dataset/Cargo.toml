@@ -9,7 +9,7 @@ version.workspace = true
 
 [features]
 default = ["burn/default"]
-tch-gpu = ["burn/tch"]
+libtorch-gpu = ["burn/libtorch"]
 wgpu = ["burn/wgpu"]
 
 [dependencies]

@@ -32,9 +32,9 @@ doc = [
     "candle",
     "fusion",
     "ndarray",
-    "tch",
+    "libtorch",
     "wgpu",
-    "cuda-jit",
+    "cuda",
     "vision",
     "autodiff",
     # Doc features
@@ -85,11 +85,11 @@ template = ["burn-wgpu?/template"]
 
 candle = ["burn-candle"]
 candle-cuda = ["candle", "burn-candle/cuda"]
-cuda-jit = ["burn-cuda"]
+cuda = ["burn-cuda"]
 ndarray = ["burn-ndarray"]
-tch = ["burn-tch"]
+libtorch = ["burn-tch"]
 wgpu = ["burn-wgpu"]
-wgpu-spirv = ["wgpu", "burn-wgpu/spirv"]
+vulkan = ["wgpu", "burn-wgpu/spirv"]
 
 # Custom deserializer for Record that is helpful for importing data, such as PyTorch pt files.
 record-item-custom-serde = ["thiserror", "regex"]
@@ -100,12 +100,12 @@ experimental-named-tensor = ["burn-tensor/experimental-named-tensor"]
 # Backwards compatibility with previous serialized data format.
 record-backward-compat = []
 
-test-cuda = ["cuda-jit"] # To use cuda during testing, default uses ndarray.
-test-tch = ["tch"] # To use tch during testing, default uses ndarray.
+test-cuda = ["cuda"] # To use cuda during testing, default uses ndarray.
+test-libtorch = ["libtorch"] # To use tch during testing, default uses ndarray.
 test-wgpu = ["wgpu"] # To use wgpu during testing, default uses ndarray.
-test-wgpu-spirv = [
+test-vulkan = [
     "test-wgpu",
-    "wgpu-spirv",
+    "vulkan",
 ] # To use wgpu-spirv during testing, default uses ndarray.
 
 [dependencies]

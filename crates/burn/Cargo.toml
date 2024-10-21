@@ -49,11 +49,11 @@ openblas-system = ["burn-core/openblas-system"]
 template = ["burn-core/template"]
 
 candle = ["burn-core/candle"]
-cuda-jit = ["burn-core/cuda-jit"]
+libtorch = ["burn-core/libtorch"]
+cuda = ["burn-core/cuda"]
 ndarray = ["burn-core/ndarray"]
-tch = ["burn-core/tch"]
 wgpu = ["burn-core/wgpu"]
-wgpu-spirv = ["burn-core/wgpu-spirv"]
+vulkan = ["burn-core/vulkan"]
 
 # Network utils
 network = ["burn-core/network"]

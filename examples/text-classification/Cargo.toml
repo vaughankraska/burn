@@ -13,10 +13,10 @@ ndarray = ["burn/ndarray"]
 ndarray-blas-accelerate = ["burn/ndarray", "burn/accelerate"]
 ndarray-blas-netlib = ["burn/ndarray", "burn/blas-netlib"]
 ndarray-blas-openblas = ["burn/ndarray", "burn/openblas"]
-tch-cpu = ["burn/tch"]
-tch-gpu = ["burn/tch"]
+libtorch-cpu = ["burn/libtorch"]
+libtorch-gpu = ["burn/libtorch"]
 wgpu = ["burn/wgpu"]
-cuda-jit = ["burn/cuda-jit"]
+cuda = ["burn/cuda"]
 
 [dependencies]
 # Burn
