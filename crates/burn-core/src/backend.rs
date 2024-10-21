@@ -16,11 +16,17 @@ pub use burn_wgpu as wgpu;
 #[cfg(feature = "wgpu")]
 pub use burn_wgpu::Wgpu;
 
-#[cfg(feature = "cuda-jit")]
-pub use burn_cuda as cuda_jit;
+#[cfg(feature = "vulkan")]
+pub use burn_wgpu as vulkan;
 
-#[cfg(feature = "cuda-jit")]
-pub use burn_cuda::Cuda as CudaJit;
+#[cfg(feature = "vulkan")]
+pub use burn_wgpu::Vulkan;
+
+#[cfg(feature = "cuda")]
+pub use burn_cuda as cuda;
+
+#[cfg(feature = "cuda")]
+pub use burn_cuda::Cuda;
 
 #[cfg(feature = "candle")]
 pub use burn_candle as candle;
@@ -28,8 +34,8 @@ pub use burn_candle as candle;
 #[cfg(feature = "candle")]
 pub use burn_candle::Candle;
 
-#[cfg(feature = "tch")]
+#[cfg(feature = "libtorch")]
 pub use burn_tch as libtorch;
 
-#[cfg(feature = "tch")]
+#[cfg(feature = "libtorch")]
 pub use burn_tch::LibTorch;

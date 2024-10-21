@@ -1,5 +1,5 @@
-#[cfg(feature = "tch-gpu")]
-mod tch_gpu {
+#[cfg(feature = "libtorch-gpu")]
+mod libtorch_gpu {
     use burn::{
         backend::{
             libtorch::{LibTorch, LibTorchDevice},
@@ -50,8 +50,8 @@ mod wgpu {
 }
 
 fn main() {
-    #[cfg(feature = "tch-gpu")]
-    tch_gpu::run();
+    #[cfg(feature = "libtorch-gpu")]
+    libtorch_gpu::run();
     #[cfg(feature = "wgpu")]
     wgpu::run();
 }

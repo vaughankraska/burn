@@ -77,10 +77,10 @@ pub(crate) fn handle_command(
                 if std::env::var("DISABLE_WGPU_SPIRV").is_err() {
                     helpers::custom_crates_tests(
                         vec!["burn-core"],
-                        vec!["--features", "test-wgpu-spirv"],
+                        vec!["--features", "test-vulkan"],
                         None,
                         None,
-                        "std wgpu-spirv",
+                        "std vulkan",
                     )?;
                 }
             }

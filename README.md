@@ -550,7 +550,7 @@ Additional examples:
 - [Custom Image Dataset](./examples/custom-image-dataset) : Trains a simple CNN on custom image
   dataset following a simple folder structure.
 - [Custom Renderer](./examples/custom-renderer) : Implements a custom renderer to display the
-  [`Learner`](./building-blocks/learner.md) progress.
+  [`Learner`](./burn-book/src/building-blocks/learner.md) progress.
 - [Image Classification Web](./examples/image-classification-web) : Image classification web browser
   demo using Burn, WGPU and WebAssembly.
 - [MNIST Inference on Web](./examples/mnist-inference-web) : An interactive MNIST inference demo in

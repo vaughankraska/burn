@@ -70,22 +70,22 @@ enum BackendValues {
     NdarrayBlasNetlib,
     #[strum(to_string = "ndarray-blas-openblas")]
     NdarrayBlasOpenblas,
-    #[strum(to_string = "tch-cpu")]
+    #[strum(to_string = "libtorch-cpu")]
     TchCpu,
-    #[strum(to_string = "tch-gpu")]
+    #[strum(to_string = "libtorch-gpu")]
     TchGpu,
     #[strum(to_string = "wgpu")]
     Wgpu,
     #[strum(to_string = "wgpu-fusion")]
     WgpuFusion,
-    #[strum(to_string = "wgpu-spirv")]
-    WgpuSpirv,
-    #[strum(to_string = "wgpu-spirv-fusion")]
-    WgpuSpirvFusion,
-    #[strum(to_string = "cuda-jit")]
-    CudaJit,
-    #[strum(to_string = "cuda-jit-fusion")]
-    CudaJitFusion,
+    #[strum(to_string = "vulkan")]
+    Vulkan,
+    #[strum(to_string = "vulkan-fusion")]
+    VulkanFusion,
+    #[strum(to_string = "cuda")]
+    Cuda,
+    #[strum(to_string = "cuda-fusion")]
+    CudaFusion,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, ValueEnum, Display, EnumIter)]

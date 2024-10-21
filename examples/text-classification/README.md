@@ -32,12 +32,12 @@ cd burn
 export TORCH_CUDA_VERSION=cu121  # Set the cuda version (CUDA users)
 
 # AG News
-cargo run --example ag-news-train --release --features tch-gpu   # Train on the ag news dataset
-cargo run --example ag-news-infer --release --features tch-gpu   # Run inference on the ag news dataset
+cargo run --example ag-news-train --release --features libtorch-gpu   # Train on the ag news dataset
+cargo run --example ag-news-infer --release --features libtorch-gpu   # Run inference on the ag news dataset
 
 # DbPedia
-cargo run --example db-pedia-train --release --features tch-gpu  # Train on the db pedia dataset
-cargo run --example db-pedia-infer --release --features tch-gpu  # Run inference db pedia dataset
+cargo run --example db-pedia-train --release --features libtorch-gpu  # Train on the db pedia dataset
+cargo run --example db-pedia-infer --release --features libtorch-gpu  # Run inference db pedia dataset
 ```
 
 ## Torch CPU backend
@@ -49,12 +49,12 @@ cd burn
 # Use the --release flag to really speed up training.
 
 # AG News
-cargo run --example ag-news-train --release --features tch-cpu   # Train on the ag news dataset
-cargo run --example ag-news-infer --release --features tch-cpu   # Run inference on the ag news dataset
+cargo run --example ag-news-train --release --features libtorch-cpu   # Train on the ag news dataset
+cargo run --example ag-news-infer --release --features libtorch-cpu   # Run inference on the ag news dataset
 
 # DbPedia
-cargo run --example db-pedia-train --release --features tch-cpu  # Train on the db pedia dataset
-cargo run --example db-pedia-infer --release --features tch-cpu  # Run inference db pedia dataset
+cargo run --example db-pedia-train --release --features libtorch-cpu  # Train on the db pedia dataset
+cargo run --example db-pedia-infer --release --features libtorch-cpu  # Run inference db pedia dataset
 ```
 
 ## ndarray backend
@@ -102,6 +102,6 @@ cd burn
 # Use the --release flag to really speed up training.
 
 # AG News
-cargo run --example ag-news-train --release --features cuda-jit   # Train on the ag news dataset
-cargo run --example ag-news-infer --release --features cuda-jit   # Run inference on the ag news dataset
+cargo run --example ag-news-train --release --features cuda   # Train on the ag news dataset
+cargo run --example ag-news-infer --release --features cuda   # Run inference on the ag news dataset
 ```

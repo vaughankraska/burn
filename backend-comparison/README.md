@@ -33,12 +33,12 @@ Available Backends:
 - ndarray-blas-accelerate
 - ndarray-blas-netlib
 - ndarray-blas-openblas
-- tch-cpu
-- tch-gpu
+- libtorch-cpu
+- libtorch-gpu
 - wgpu
 - wgpu-fusion
-- wgpu-spirv
-- wgpu-spirv-fusion
+- vulkan
+- vulkan-fusion
 
 Available Benchmarks:
 - binary
@@ -76,13 +76,13 @@ Multiple benchmarks and backends can be passed on the same command line. In this
 case, all the combinations of benchmarks with backends will be executed.
 
 ```sh
-> cargo run --bin burnbench -- run --benches unary binary --backends wgpu-fusion tch-gpu
+> cargo run --bin burnbench -- run --benches unary binary --backends wgpu-fusion libtorch-gpu
      Running `target/release/burnbench run --benches unary binary --backends wgpu-fusion wgpu`
 Executing the following benchmark and backend combinations (Total: 4):
 - Benchmark: unary, Backend: wgpu-fusion
 - Benchmark: binary, Backend: wgpu-fusion
-- Benchmark: unary, Backend: tch-gpu
-- Benchmark: binary, Backend: tch-gpu
+- Benchmark: unary, Backend: libtorch-gpu
+- Benchmark: binary, Backend: libtorch-gpu
 Running benchmarks...
 ```
 

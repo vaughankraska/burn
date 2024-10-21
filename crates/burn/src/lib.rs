@@ -76,18 +76,19 @@
 //!   - `vision`: Enables vision datasets (MnistDataset)
 //! - Backends
 //!   - `wgpu`: Makes available the WGPU backend
-//!   - `wgpu-spirv`: Makes available the `wgpu` backend with the alternative SPIR-V compiler
+//!   - `vulkan`: Makes available the Vulkan backend
 //!   - `candle`: Makes available the Candle backend
-//!   - `tch`: Makes available the LibTorch backend
+//!   - `libtorch`: Makes available the LibTorch backend
 //!   - `ndarray`: Makes available the NdArray backend
+//!   - `cuda`: Makes available the Cuda backend
 //! - Backend specifications
-//!   - `cuda`: If supported, CUDA will be used
+//!   - `fusion`: Enable operation fusion in backends that support it.
 //!   - `accelerate`: If supported, Accelerate will be used
 //!   - `blas-netlib`: If supported, Blas Netlib will be use
 //!   - `openblas`: If supported, Openblas will be use
 //!   - `openblas-system`: If supported, Openblas installed on the system will be use
 //!   - `autotune`: Enable running benchmarks to select the best kernel in backends that support it.
-//!   - `fusion`: Enable operation fusion in backends that support it.
+//!   - `candle-uda`: Enable Cuda on the candle backend.
 //! - Backend decorators
 //!   - `autodiff`: Makes available the Autodiff backend
 //! - Others:

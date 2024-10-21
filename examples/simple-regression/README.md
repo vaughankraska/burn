@@ -24,8 +24,8 @@ cargo run --example regression --release --features ndarray-blas-openblas  # CPU
 cargo run --example regression --release --features ndarray-blas-netlib    # CPU NdArray Backend - f32 - blas with netlib
 echo "Using tch backend"
 export TORCH_CUDA_VERSION=cu121                                            # Set the cuda version
-cargo run --example regression --release --features tch-gpu                # GPU Tch Backend - f32
-cargo run --example regression --release --features tch-cpu                # CPU Tch Backend - f32
+cargo run --example regression --release --features libtorch-gpu                # GPU Tch Backend - f32
+cargo run --example regression --release --features libtorch-cpu                # CPU Tch Backend - f32
 echo "Using wgpu backend"
 cargo run --example regression --release --features wgpu
 ```

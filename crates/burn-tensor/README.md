@@ -19,15 +19,16 @@ This library provides multiple tensor implementations hidden behind an easy to u
 
 ### Backends
 
-For now, three backends are implemented, and some more are planned.
+Multiple backends are implemented.
 
-- [x] Pytorch using [tch-rs](https://github.com/LaurentMazare/tch-rs)
-- [x] 100% Rust backend using [ndarray](https://github.com/rust-ndarray/ndarray)
-- [x] [WGPU](https://github.com/gfx-rs/wgpu) backend
-- [ ] [Candle](https://github.com/huggingface/candle) backend
-- [ ] Tensorflow using [tensorflow-rust](https://github.com/tensorflow/rust)
-- [ ] CuDNN using RustCUDA[tensorflow-rust](https://github.com/Rust-GPU/Rust-CUDA)
-- [ ] ...
+- [CubeCL](https://github.com/tracel-ai/cubecl) backend supporting many runtimes
+    - WebGPU
+    - Vulkan
+    - CUDA
+    - Rocm/HIP (WIP)
+- LibTorch using [tch-rs](https://github.com/LaurentMazare/tch-rs)
+- Light weight CPU backend using [ndarray](https://github.com/rust-ndarray/ndarray)
+- [Candle](https://github.com/huggingface/candle) backend
 
 ### Autodiff
 

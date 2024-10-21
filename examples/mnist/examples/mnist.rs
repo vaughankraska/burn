@@ -17,8 +17,8 @@ mod ndarray {
     }
 }
 
-#[cfg(feature = "tch-gpu")]
-mod tch_gpu {
+#[cfg(feature = "libtorch-gpu")]
+mod libtorch_gpu {
     use burn::backend::{
         libtorch::{LibTorch, LibTorchDevice},
         Autodiff,
@@ -49,8 +49,8 @@ mod wgpu {
     }
 }
 
-#[cfg(feature = "tch-cpu")]
-mod tch_cpu {
+#[cfg(feature = "libtorch-cpu")]
+mod libtorch_cpu {
     use burn::backend::{
         libtorch::{LibTorch, LibTorchDevice},
         Autodiff,
@@ -71,10 +71,10 @@ fn main() {
         feature = "ndarray-blas-accelerate",
     ))]
     ndarray::run();
-    #[cfg(feature = "tch-gpu")]
-    tch_gpu::run();
-    #[cfg(feature = "tch-cpu")]
-    tch_cpu::run();
+    #[cfg(feature = "libtorch-gpu")]
+    libtorch_gpu::run();
+    #[cfg(feature = "libtorch-cpu")]
+    libtorch_cpu::run();
     #[cfg(feature = "wgpu")]
     wgpu::run();
 }

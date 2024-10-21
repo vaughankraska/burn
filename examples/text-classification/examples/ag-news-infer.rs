@@ -46,8 +46,8 @@ mod ndarray {
     }
 }
 
-#[cfg(feature = "tch-gpu")]
-mod tch_gpu {
+#[cfg(feature = "libtorch-gpu")]
+mod libtorch_gpu {
     use crate::{launch, ElemType};
     use burn::backend::libtorch::{LibTorch, LibTorchDevice};
 
@@ -61,8 +61,8 @@ mod tch_gpu {
     }
 }
 
-#[cfg(feature = "tch-cpu")]
-mod tch_cpu {
+#[cfg(feature = "libtorch-cpu")]
+mod libtorch_cpu {
     use crate::{launch, ElemType};
     use burn::backend::libtorch::{LibTorch, LibTorchDevice};
 
@@ -81,13 +81,13 @@ mod wgpu {
     }
 }
 
-#[cfg(feature = "cuda-jit")]
-mod cuda_jit {
+#[cfg(feature = "cuda")]
+mod cuda {
     use crate::{launch, ElemType};
-    use burn::backend::{cuda_jit::CudaDevice, CudaJit};
+    use burn::backend::{cuda::CudaDevice, Cuda};
 
     pub fn run() {
-        launch::<CudaJit<ElemType, i32>>(CudaDevice::default());
+        launch::<Cuda<ElemType, i32>>(CudaDevice::default());
     }
 }
 
@@ -99,12 +99,12 @@ fn main() {
         feature = "ndarray-blas-accelerate",
     ))]
     ndarray::run();
-    #[cfg(feature = "tch-gpu")]
-    tch_gpu::run();
-    #[cfg(feature = "tch-cpu")]
-    tch_cpu::run();
+    #[cfg(feature = "libtorch-gpu")]
+    libtorch_gpu::run();
+    #[cfg(feature = "libtorch-cpu")]
+    libtorch_cpu::run();
     #[cfg(feature = "wgpu")]
     wgpu::run();
-    #[cfg(feature = "cuda-jit")]
-    cuda_jit::run();
+    #[cfg(feature = "cuda")]
+    cuda::run();
 }

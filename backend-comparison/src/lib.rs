@@ -49,22 +49,22 @@ macro_rules! bench_on_backend {
         let feature_name = "ndarray-blas-netlib";
         #[cfg(feature = "ndarray-blas-openblas")]
         let feature_name = "ndarray-blas-openblas";
-        #[cfg(feature = "tch-cpu")]
-        let feature_name = "tch-cpu";
-        #[cfg(feature = "tch-gpu")]
-        let feature_name = "tch-gpu";
+        #[cfg(feature = "libtorch-cpu")]
+        let feature_name = "libtorch-cpu";
+        #[cfg(feature = "libtorch-gpu")]
+        let feature_name = "libtorch-gpu";
         #[cfg(feature = "wgpu")]
         let feature_name = "wgpu";
         #[cfg(feature = "wgpu-fusion")]
         let feature_name = "wgpu-fusion";
-        #[cfg(feature = "wgpu-spirv")]
-        let feature_name = "wgpu-spirv";
-        #[cfg(feature = "wgpu-spirv-fusion")]
-        let feature_name = "wgpu-spirv-fusion";
-        #[cfg(feature = "cuda-jit")]
-        let feature_name = "cuda-jit";
-        #[cfg(feature = "cuda-jit-fusion")]
-        let feature_name = "cuda-jit-fusion";
+        #[cfg(feature = "vulkan")]
+        let feature_name = "vulkan";
+        #[cfg(feature = "vulkan-fusion")]
+        let feature_name = "vulkan-fusion";
+        #[cfg(feature = "cuda")]
+        let feature_name = "cuda";
+        #[cfg(feature = "cuda-fusion")]
+        let feature_name = "cuda-fusion";
 
         #[cfg(any(feature = "wgpu"))]
         {
@@ -73,14 +73,14 @@ macro_rules! bench_on_backend {
             bench::<Wgpu<f32, i32>>(&WgpuDevice::default(), feature_name, url, token);
         }
 
-        #[cfg(any(feature = "wgpu-spirv"))]
+        #[cfg(any(feature = "vulkan"))]
         {
-            use burn::backend::wgpu::{Wgpu, WgpuDevice};
+            use burn::backend::vulkan::{Vulkan, WgpuDevice};
 
-            bench::<Wgpu<half::f16, i32>>(&WgpuDevice::default(), feature_name, url, token);
+            bench::<Vulkan<half::f16, i32>>(&WgpuDevice::default(), feature_name, url, token);
         }
 
-        #[cfg(feature = "tch-gpu")]
+        #[cfg(feature = "libtorch-gpu")]
         {
             use burn::backend::{libtorch::LibTorchDevice, LibTorch};
 
@@ -91,7 +91,7 @@ macro_rules! bench_on_backend {
             bench::<LibTorch<half::f16>>(&device, feature_name, url, token);
         }
 
-        #[cfg(feature = "tch-cpu")]
+        #[cfg(feature = "libtorch-cpu")]
         {
             use burn::backend::{libtorch::LibTorchDevice, LibTorch};
 
@@ -140,9 +140,9 @@ macro_rules! bench_on_backend {
             bench::<Candle>(&device, feature_name, url, token);
         }
 
-        #[cfg(feature = "cuda-jit")]
+        #[cfg(feature = "cuda")]
         {
-            use burn::backend::cuda_jit::{Cuda, CudaDevice};
+            use burn::backend::cuda::{Cuda, CudaDevice};
 
             bench::<Cuda<half::f16>>(&CudaDevice::default(), feature_name, url, token);
         }

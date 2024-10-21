@@ -47,17 +47,21 @@ extern crate alloc;
 
 #[cfg(all(
     test,
-    not(feature = "test-tch"),
+    not(feature = "test-libtorch"),
     not(feature = "test-wgpu"),
-    not(feature = "test-cuda")
+    not(feature = "test-cuda"),
+    not(feature = "test-vulkan")
 ))]
 pub type TestBackend = burn_ndarray::NdArray<f32>;
 
-#[cfg(all(test, feature = "test-tch"))]
+#[cfg(all(test, feature = "test-libtorch"))]
 pub type TestBackend = burn_tch::LibTorch<f32>;
 
 #[cfg(all(test, feature = "test-wgpu"))]
 pub type TestBackend = burn_wgpu::Wgpu;
+
+#[cfg(all(test, feature = "test-vulkan"))]
+pub type TestBackend = burn_wgpu::Vulkan;
 
 #[cfg(all(test, feature = "test-cuda"))]
 pub type TestBackend = burn_cuda::Cuda;

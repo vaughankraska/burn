@@ -55,7 +55,7 @@ Run it with the Torch GPU backend:
 
 ```sh
 export TORCH_CUDA_VERSION=cu121
-cargo run --example custom-image-dataset --release --features tch-gpu
+cargo run --example custom-image-dataset --release --features libtorch-gpu
 ```
 
 Run it with our WGPU backend:
