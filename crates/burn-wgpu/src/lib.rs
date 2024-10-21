@@ -84,11 +84,11 @@ pub type Wgpu<F = f32, I = i32> =
 pub type Wgpu<F = f32, I = i32> =
     JitBackend<cubecl::wgpu::WgpuRuntime<cubecl::wgpu::WgslCompiler>, F, I>;
 
-#[cfg(all(feature = "spirv", not(feature = "fusion")))]
+#[cfg(all(feature = "vulkan", not(feature = "fusion")))]
 pub type Vulkan<F = f32, I = i32> =
     JitBackend<cubecl::wgpu::WgpuRuntime<cubecl::wgpu::spirv::VkSpirvCompiler>, F, I>;
 
-#[cfg(all(feature = "spirv", feature = "fusion"))]
+#[cfg(all(feature = "vulkan", feature = "fusion"))]
 pub type Vulkan<F = f32, I = i32> = burn_fusion::Fusion<
     JitBackend<cubecl::wgpu::WgpuRuntime<cubecl::wgpu::spirv::VkSpirvCompiler>, F, I>,
 >;
@@ -102,7 +102,7 @@ mod tests {
         burn_jit::testgen_all!();
     }
 
-    #[cfg(feature = "spirv")]
+    #[cfg(feature = "vulkan")]
     mod vulkan {
         use burn_jit::JitBackend;
         pub type TestRuntime = cubecl::wgpu::WgpuRuntime<cubecl::wgpu::spirv::VkSpirvCompiler>;
