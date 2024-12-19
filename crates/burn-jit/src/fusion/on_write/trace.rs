@@ -438,24 +438,36 @@ impl FuseOnWriteTrace {
             SequenceArg::new(),
             SequenceArg::new(),
             SequenceArg::new(),
+            SequenceArg::new(),
         );
 
         for hi in handle_inputs.iter() {
-            let arg = hi.handle.as_tensor_arg(&hi.global_shape, vectorization);
             match hi.precision {
-                ElemwisePrecision::F32 => inputs.t_f32.push(arg),
-                ElemwisePrecision::F16 => inputs.t_f16.push(arg),
-                ElemwisePrecision::BF16 => inputs.t_bf16.push(arg),
-                ElemwisePrecision::I64 => inputs.t_i64.push(arg),
-                ElemwisePrecision::I32 => inputs.t_i32.push(arg),
-                ElemwisePrecision::I16 => inputs.t_i16.push(arg),
-                ElemwisePrecision::I8 => inputs.t_i8.push(arg),
-                ElemwisePrecision::U64 => inputs.t_u64.push(arg),
-                ElemwisePrecision::U32 => inputs.t_u32.push(arg),
-                ElemwisePrecision::U16 => inputs.t_u16.push(arg),
-                ElemwisePrecision::U8 => inputs.t_u8.push(arg),
-                _ => panic!("Unsupported input precision {:?}", hi.precision),
-            };
+                ElemwisePrecision::QFloat {
+                    scheme: _,
+                    working_precision: _,
+                } => {
+                    let arg = hi.handle.as_array_arg::<u32>(vectorization);
+                    inputs.t_qfloat.push(arg)
+                }
+                precision => {
+                    let arg = hi.handle.as_tensor_arg(&hi.global_shape, vectorization);
+                    match precision {
+                        ElemwisePrecision::F32 => inputs.t_f32.push(arg),
+                        ElemwisePrecision::F16 => inputs.t_f16.push(arg),
+                        ElemwisePrecision::BF16 => inputs.t_bf16.push(arg),
+                        ElemwisePrecision::I64 => inputs.t_i64.push(arg),
+                        ElemwisePrecision::I32 => inputs.t_i32.push(arg),
+                        ElemwisePrecision::I16 => inputs.t_i16.push(arg),
+                        ElemwisePrecision::I8 => inputs.t_i8.push(arg),
+                        ElemwisePrecision::U64 => inputs.t_u64.push(arg),
+                        ElemwisePrecision::U32 => inputs.t_u32.push(arg),
+                        ElemwisePrecision::U16 => inputs.t_u16.push(arg),
+                        ElemwisePrecision::U8 => inputs.t_u8.push(arg),
+                        _ => panic!("Unsupported input precision {:?}", hi.precision),
+                    };
+                }
+            }
         }
 
         for (precision, count) in self.scalars.iter() {
@@ -491,6 +503,10 @@ impl FuseOnWriteTrace {
                     }
                     ElemwisePrecision::U8 => inputs.s_u8.push(ScalarArg::new(context.scalar_u8[i])),
                     ElemwisePrecision::Bool => todo!(),
+                    ElemwisePrecision::QFloat {
+                        scheme: _,
+                        working_precision: _,
+                    } => unreachable!("Only quantized tensors are valid, not scalars"),
                 }
             }
         }
@@ -504,6 +520,7 @@ impl FuseOnWriteTrace {
         vectorization: u8,
     ) -> GlobalArgsLaunch<'s, R> {
         let mut outputs = GlobalArgsLaunch::new(
+            SequenceArg::new(),
             SequenceArg::new(),
             SequenceArg::new(),
             SequenceArg::new(),
@@ -552,25 +569,36 @@ impl FuseOnWriteTrace {
                     global_shape,
                     ..
                 } => {
-                    let arg = handle.as_tensor_arg(global_shape, vectorization);
-
                     match precision {
-                        ElemwisePrecision::F32 => outputs.t_f32.push(arg),
-                        ElemwisePrecision::F16 => outputs.t_f16.push(arg),
-                        ElemwisePrecision::BF16 => outputs.t_bf16.push(arg),
-                        ElemwisePrecision::I64 => outputs.t_i64.push(arg),
-                        ElemwisePrecision::I32 => outputs.t_i32.push(arg),
-                        ElemwisePrecision::I16 => outputs.t_i16.push(arg),
-                        ElemwisePrecision::I8 => outputs.t_i8.push(arg),
-                        ElemwisePrecision::U64 => outputs.t_u64.push(arg),
-                        ElemwisePrecision::U32 => outputs.t_u32.push(arg),
-                        ElemwisePrecision::U16 => outputs.t_u16.push(arg),
-                        ElemwisePrecision::U8 => outputs.t_u8.push(arg),
-                        ElemwisePrecision::Bool => match BT::dtype() {
-                            DType::U32 => outputs.t_u32.push(arg),
-                            DType::U8 => outputs.t_u8.push(arg),
-                            _ => todo!(),
-                        },
+                        ElemwisePrecision::QFloat {
+                            scheme: _,
+                            working_precision: _,
+                        } => {
+                            let arg = handle.as_array_arg::<u32>(vectorization);
+                            outputs.t_qfloat.push(arg)
+                        }
+                        precision => {
+                            let arg = handle.as_tensor_arg(global_shape, vectorization);
+                            match precision {
+                                ElemwisePrecision::F32 => outputs.t_f32.push(arg),
+                                ElemwisePrecision::F16 => outputs.t_f16.push(arg),
+                                ElemwisePrecision::BF16 => outputs.t_bf16.push(arg),
+                                ElemwisePrecision::I64 => outputs.t_i64.push(arg),
+                                ElemwisePrecision::I32 => outputs.t_i32.push(arg),
+                                ElemwisePrecision::I16 => outputs.t_i16.push(arg),
+                                ElemwisePrecision::I8 => outputs.t_i8.push(arg),
+                                ElemwisePrecision::U64 => outputs.t_u64.push(arg),
+                                ElemwisePrecision::U32 => outputs.t_u32.push(arg),
+                                ElemwisePrecision::U16 => outputs.t_u16.push(arg),
+                                ElemwisePrecision::U8 => outputs.t_u8.push(arg),
+                                ElemwisePrecision::Bool => match BT::dtype() {
+                                    DType::U32 => outputs.t_u32.push(arg),
+                                    DType::U8 => outputs.t_u8.push(arg),
+                                    _ => todo!(),
+                                },
+                                _ => panic!("Unsupported input precision {:?}", precision),
+                            }
+                        }
                     };
                 }
             }

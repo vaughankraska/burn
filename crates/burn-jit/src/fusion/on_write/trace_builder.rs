@@ -331,6 +331,11 @@ impl FuseOnWriteTraceBuilder {
                 &mut local_tensor_ids_input,
                 &mut local_tensor_ids_output,
             ),
+            ElemwiseOp::Dequantize(op) => mark_unary(
+                op,
+                &mut local_tensor_ids_input,
+                &mut local_tensor_ids_output,
+            ),
         };
 
         // For all operators, mark their local tensor id in the proper set.

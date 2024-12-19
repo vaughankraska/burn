@@ -1,5 +1,11 @@
+use crate::kernel::quantization::{
+    dequantize_affine_int8_unpacked_line, dequantize_symmetric_int8_unpacked_line, QParams,
+};
+
 use super::ir::*;
+use burn_tensor::quantization::{QuantizationScheme, QuantizationType};
 use cubecl::{linalg::tensor::index_offset_with_layout, prelude::*};
+use half::{bf16, f16};
 
 #[cube]
 /// Read the value from the [arg](Arg) and cast it to the generic cube primitive.
@@ -31,6 +37,11 @@ pub fn read<C: CubePrimitive>(
             ElemwisePrecision::I16 => Line::cast_from(locals.l_i16.find(pos)),
             ElemwisePrecision::I8 => Line::cast_from(locals.l_i8.find(pos)),
             ElemwisePrecision::Bool => Line::cast_from(locals.l_bool.find(pos)),
+            // Intermediate results are not taken into account
+            ElemwisePrecision::QFloat {
+                scheme: _,
+                working_precision: _,
+            } => comptime![panic!("Unsupported local QFloat")],
         },
         Arg::Scalar(pos, precision) => match comptime![precision] {
             ElemwisePrecision::F32 => Line::cast_from(*inputs.s_f32.index(pos)),
@@ -159,6 +170,50 @@ pub fn read_input<C: CubePrimitive>(
                 LayoutInfo::Unknown => get_offset(inputs, outputs, tensor, ref_pos, config),
             };
             Line::cast_from(tensor[offset])
+        }
+        ElemwisePrecision::QFloat {
+            scheme,
+            working_precision,
+        } => {
+            // Dequantize values on read
+            let tensor = inputs.t_qfloat.index(pos);
+            let pos_offset = match layout {
+                LayoutInfo::SameAsRef => ref_pos,
+                LayoutInfo::IsRef => ref_pos,
+                LayoutInfo::Unknown => comptime![panic!("Layout must be contiguous array")],
+            };
+            let qparams = QParams::new(scheme);
+            let (scale, offset) = qparams.values(tensor);
+            let input = tensor[pos_offset];
+
+            match scheme {
+                QuantizationScheme::PerTensorAffine(QuantizationType::QInt8) => {
+                    match working_precision {
+                        WorkingPrecision::F32 => Line::cast_from(
+                            dequantize_affine_int8_unpacked_line::<f32>(input, scale, offset),
+                        ),
+                        WorkingPrecision::F16 => Line::cast_from(
+                            dequantize_affine_int8_unpacked_line::<f16>(input, scale, offset),
+                        ),
+                        WorkingPrecision::BF16 => Line::cast_from(
+                            dequantize_affine_int8_unpacked_line::<bf16>(input, scale, offset),
+                        ),
+                    }
+                }
+                QuantizationScheme::PerTensorSymmetric(QuantizationType::QInt8) => {
+                    match working_precision {
+                        WorkingPrecision::F32 => Line::cast_from(
+                            dequantize_symmetric_int8_unpacked_line::<f32>(input, scale),
+                        ),
+                        WorkingPrecision::F16 => Line::cast_from(
+                            dequantize_symmetric_int8_unpacked_line::<f16>(input, scale),
+                        ),
+                        WorkingPrecision::BF16 => Line::cast_from(
+                            dequantize_symmetric_int8_unpacked_line::<bf16>(input, scale),
+                        ),
+                    }
+                }
+            }
         }
         _ => comptime![panic!("Unsupported precision {precision:?}")],
     }
@@ -416,6 +471,10 @@ pub fn write<C: CubePrimitive>(
             ElemwisePrecision::I16 => locals.l_i16.insert(pos, Line::cast_from(value)),
             ElemwisePrecision::I8 => locals.l_i8.insert(pos, Line::cast_from(value)),
             ElemwisePrecision::Bool => locals.l_bool.insert(pos, Line::cast_from(value)),
+            ElemwisePrecision::QFloat {
+                scheme: _,
+                working_precision: _,
+            } => comptime![panic!("Can't write into quantized values")],
         },
         _ => comptime![panic!("Can't write into inputs and scalars")],
     }

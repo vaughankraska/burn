@@ -42,6 +42,13 @@ impl cubecl::frontend::Init for QuantizationScheme {
     }
 }
 
+#[cfg(feature = "cubecl")]
+impl IntoRuntime for QuantizationScheme {
+    fn __expand_runtime_method(self, context: &mut CubeContext) -> Self::ExpandType {
+        Init::init(self, context)
+    }
+}
+
 impl QuantizationScheme {
     /// Compute the quantization parameters.
     pub fn compute_q_params<B: Backend>(

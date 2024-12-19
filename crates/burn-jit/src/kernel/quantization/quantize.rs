@@ -5,7 +5,13 @@ use burn_tensor::quantization::{QuantizationScheme, QuantizationType};
 use cubecl::calculate_cube_count_elemwise;
 use cubecl::prelude::*;
 
+use super::{
+    pack_i8s_into_u32, AFFINE_RANGE_MAX_I8, AFFINE_RANGE_MIN_I8, SYMMETRIC_RANGE_MAX_I8,
+    SYMMETRIC_RANGE_MIN_I8,
+};
+
 #[cube]
+/// Apply int8 affine quantization to the floating-point value.
 pub(crate) fn quantize_affine_int8<F: Float>(
     value: Line<F>,
     scale: f32,
@@ -22,6 +28,109 @@ pub(crate) fn quantize_affine_int8<F: Float>(
             Line::cast_from(range_max),
         ) + Line::cast_from(comptime!(256f32)),
     )
+}
+
+#[cube]
+/// Apply int8 symmetric quantization to the floating-point value.
+pub(crate) fn quantize_symmetric_int8<F: Float>(
+    value: Line<F>,
+    scale: f32,
+    range_min: f32,
+    range_max: f32,
+) -> Line<u32> {
+    // x_q = clamp(round(x / scale), a, b)
+    // NOTE: we add 256 before casting to unsigned to correctly represent negative values
+    Line::cast_from(
+        Line::clamp(
+            Line::round(value / Line::cast_from(scale)),
+            Line::cast_from(range_min),
+            Line::cast_from(range_max),
+        ) + Line::cast_from(comptime!(256f32)),
+    )
+}
+
+#[cube]
+/// Apply int8 affine quantization to a line of 4 floating-point values and pack the values into a single u32.
+pub(crate) fn quantize_affine_int8_packed<F: Float>(
+    value: Line<F>,
+    scale: f32,
+    offset: i32,
+    range_min: f32,
+    range_max: f32,
+) -> u32 {
+    pack_i8s_into_u32(quantize_affine_int8(
+        value, scale, offset, range_min, range_max,
+    ))
+}
+
+#[cube]
+/// Apply int8 symmetric quantization to a line of 4 floating-point values and pack the values into a single u32.
+pub(crate) fn quantize_symmetric_int8_packed<F: Float>(
+    value: Line<F>,
+    scale: f32,
+    range_min: f32,
+    range_max: f32,
+) -> u32 {
+    pack_i8s_into_u32(quantize_symmetric_int8(value, scale, range_min, range_max))
+}
+
+#[cube]
+/// Apply int8 affine quantization to a line of floating-point values.
+///
+/// Each group of 4 resulting quantized values is packed into a single u32 to produce
+/// a line of packed quantized values.
+pub(crate) fn quantize_affine_int8_packed_line<F: Float>(
+    value: Line<F>,
+    scale: f32,
+    offset: i32,
+    range_min: f32,
+    range_max: f32,
+) -> Line<u32> {
+    let line_size = value.size();
+    let num_packed = crate::kernel::quantization::NUM_PACKED_QINT8;
+    let num_values = line_size / num_packed;
+    let mut values = Line::<u32>::empty(num_values);
+
+    #[unroll]
+    for i in 0..num_values {
+        let mut input = Line::<F>::empty(num_packed);
+
+        #[unroll]
+        for j in 0..num_packed {
+            input[j] = value[i * num_packed + j];
+        }
+        values[i] = quantize_affine_int8_packed(input, scale, offset, range_min, range_max);
+    }
+    values
+}
+
+#[cube]
+/// Apply int8 symmetric quantization to a line of floating-point values.
+///
+/// Each group of 4 resulting quantized values is packed into a single u32 to produce
+/// a line of packed quantized values.
+pub(crate) fn quantize_symmetric_int8_packed_line<F: Float>(
+    value: Line<F>,
+    scale: f32,
+    range_min: f32,
+    range_max: f32,
+) -> Line<u32> {
+    let line_size = value.size();
+    let num_packed = crate::kernel::quantization::NUM_PACKED_QINT8;
+    let num_values = line_size / num_packed;
+    let mut values = Line::<u32>::empty(num_values);
+
+    #[unroll]
+    for i in 0..num_values {
+        let mut input = Line::<F>::empty(num_packed);
+
+        #[unroll]
+        for j in 0..num_packed {
+            input[j] = value[i * num_packed + j];
+        }
+        values[i] = quantize_symmetric_int8_packed(input, scale, range_min, range_max);
+    }
+    values
 }
 
 #[cube(launch_unchecked)]
@@ -55,10 +164,8 @@ pub(crate) fn quantize_per_tensor_affine_int8_kernel(
     let line_size = comptime!(input.line_size());
     if comptime!(line_size == 4) {
         // Assuming a line size of 4 (equal to the number of values packed)
-        let value =
-            quantize_affine_int8::<f32>(input[ABSOLUTE_POS], scale, offset, range_min, range_max);
-        // Shift and combine into u32
-        output[ABSOLUTE_POS] = pack_i8s_to_u32s(value);
+        output[ABSOLUTE_POS] =
+            quantize_affine_int8_packed(input[ABSOLUTE_POS], scale, offset, range_min, range_max);
     } else {
         let mut v_packed = 0;
         let num_packed = comptime!(4);
@@ -76,38 +183,6 @@ pub(crate) fn quantize_per_tensor_affine_int8_kernel(
         }
         output[ABSOLUTE_POS] = v_packed;
     }
-}
-
-#[cube]
-pub(crate) fn quantize_symmetric_int8<F: Float>(
-    value: Line<F>,
-    scale: f32,
-    range_min: F,
-    range_max: F,
-) -> Line<u32> {
-    // x_q = clamp(round(x / scale), a, b)
-    // NOTE: we add 256 before casting to unsigned to correctly represent negative values
-    Line::cast_from(
-        Line::clamp(
-            Line::round(value / Line::cast_from(scale)),
-            Line::new(range_min),
-            Line::new(range_max),
-        ) + Line::cast_from(comptime!(256f32)),
-    )
-}
-
-#[cube]
-pub(crate) fn pack_i8s_to_u32s(value: Line<u32>) -> u32 {
-    // NOTE: assuming line size of 4
-    let line_size = value.size();
-    let mut v_packed = 0;
-
-    #[unroll]
-    for i in 0..line_size {
-        // Shift and combine into u32
-        v_packed |= (value[i] & 0xFF) << (8 * i);
-    }
-    v_packed
 }
 
 // Would have wrapped symmetric with the same affine kernel but cube doesn't support Option<Tensor> for offset.
@@ -134,25 +209,18 @@ pub(crate) fn quantize_per_tensor_symmetric_int8_kernel(
     let line_size = comptime!(input.line_size());
     if comptime!(line_size == 4) {
         // Assuming a vectorization factor of 4 (equal to the number of values packed)
-        let value =
-            quantize_symmetric_int8::<f32>(input[ABSOLUTE_POS], scale, range_min, range_max);
-        // Shift and combine into u32
-        output[ABSOLUTE_POS] = pack_i8s_to_u32s(value);
+        output[ABSOLUTE_POS] =
+            quantize_symmetric_int8_packed(input[ABSOLUTE_POS], scale, range_min, range_max);
     } else {
-        let num_packed = comptime!(4);
-        let mut v_packed = 0;
+        // Line size of 1
+        let mut values = Line::<f32>::empty(crate::kernel::quantization::NUM_PACKED_QINT8);
+
         #[unroll]
-        for i in 0..num_packed {
-            let v = quantize_symmetric_int8::<f32>(
-                input[ABSOLUTE_POS + i],
-                scale,
-                range_min,
-                range_max,
-            );
-            // Shift and combine into u32
-            v_packed |= (v[0] & 0xFF) << (8 * i);
+        for i in 0..comptime!(crate::kernel::quantization::NUM_PACKED_QINT8) {
+            values[i] = input[ABSOLUTE_POS + i][0];
         }
-        output[ABSOLUTE_POS] = v_packed;
+
+        output[ABSOLUTE_POS] = quantize_symmetric_int8_packed(values, scale, range_min, range_max);
     }
 }
 
@@ -200,8 +268,8 @@ where
                 // Ignore shape and stride
                 TensorArg::from_raw_parts::<F>(&scale.handle, &dummy_array, &dummy_array, 1),
                 TensorArg::from_raw_parts::<I>(&offset.handle, &dummy_array, &dummy_array, 1),
-                ScalarArg::new(i8::MIN as f32),
-                ScalarArg::new(i8::MAX as f32),
+                ScalarArg::new(AFFINE_RANGE_MIN_I8),
+                ScalarArg::new(AFFINE_RANGE_MAX_I8),
                 output.as_array_arg::<u32>(1),
             )
         };
@@ -225,8 +293,8 @@ where
                 tensor.as_tensor_arg::<F>(line_size),
                 // Ignore shape and stride
                 TensorArg::from_raw_parts::<F>(&scale.handle, &dummy_array, &dummy_array, 1),
-                ScalarArg::new(-i8::MAX as f32),
-                ScalarArg::new(i8::MAX as f32),
+                ScalarArg::new(SYMMETRIC_RANGE_MIN_I8),
+                ScalarArg::new(SYMMETRIC_RANGE_MAX_I8),
                 output.as_array_arg::<u32>(1),
             )
         };

@@ -922,12 +922,9 @@ pub struct QuantizeOperationDescription {
     pub out: TensorDescription,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Serialize, Deserialize)]
+// Dequantize is the same as unary.
 #[allow(missing_docs)]
-pub struct DequantizeOperationDescription {
-    pub input: TensorDescription,
-    pub out: TensorDescription,
-}
+pub type DequantizeOperationDescription = UnaryOperationDescription;
 
 impl From<ConvOptions<1>> for Conv1dOptionsDescription {
     fn from(value: ConvOptions<1>) -> Self {

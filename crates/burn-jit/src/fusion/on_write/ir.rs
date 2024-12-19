@@ -1,8 +1,10 @@
-use burn_tensor::DType;
+use burn_tensor::{quantization::QuantizationScheme, DType};
 use cubecl::ir::Elem;
 use cubecl::prelude::*;
 use half::{bf16, f16};
 use serde::{Deserialize, Serialize};
+
+use crate::kernel::quantization::QTensor;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 /// Argument to an [elemwise operation](ElemwiseOp).
@@ -74,6 +76,7 @@ pub enum ElemwiseOp {
     Erf(UnaryElemwiseArgs),
     Recip(UnaryElemwiseArgs),
     Assign(UnaryElemwiseArgs),
+    Dequantize(UnaryElemwiseArgs),
     Equal(BinaryElemwiseArgs),
     Lower(BinaryElemwiseArgs),
     Greater(BinaryElemwiseArgs),
@@ -101,6 +104,7 @@ pub struct GlobalArgs {
     pub t_u32: Sequence<Tensor<Line<u32>>>,
     pub t_u16: Sequence<Tensor<Line<u16>>>,
     pub t_u8: Sequence<Tensor<Line<u8>>>,
+    pub t_qfloat: Sequence<QTensor>,
     pub s_f32: Sequence<f32>,
     pub s_f16: Sequence<f16>,
     pub s_bf16: Sequence<bf16>,
@@ -174,6 +178,10 @@ impl<R: Runtime> GlobalArgsLaunch<'_, R> {
                 ElemwisePrecision::U16 => &self.t_u16.values[*pos as usize],
                 ElemwisePrecision::U8 => &self.t_u8.values[*pos as usize],
                 ElemwisePrecision::Bool => panic!("Unsupported yet"),
+                ElemwisePrecision::QFloat {
+                    scheme: _,
+                    working_precision: _,
+                } => panic!("Unsupported yet"),
             },
             Arg::Output(pos, precision, _) => match precision {
                 ElemwisePrecision::F32 => &self.t_f32.values[*pos as usize],
@@ -188,6 +196,10 @@ impl<R: Runtime> GlobalArgsLaunch<'_, R> {
                 ElemwisePrecision::U16 => &self.t_u16.values[*pos as usize],
                 ElemwisePrecision::U8 => &self.t_u8.values[*pos as usize],
                 ElemwisePrecision::Bool => panic!("Unsupported yet"),
+                ElemwisePrecision::QFloat {
+                    scheme: _,
+                    working_precision: _,
+                } => panic!("Unsupported yet"),
             },
             _ => panic!("Only input & output can have a shape"),
         }
@@ -230,6 +242,15 @@ pub struct BinaryElemwiseArgs {
 #[derive(
     CubeType, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
 )]
+pub enum WorkingPrecision {
+    F32,
+    F16,
+    BF16,
+}
+
+#[derive(
+    CubeType, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
 /// Precisions supported by [element wise operations](ElemwiseOp).
 pub enum ElemwisePrecision {
     F32,
@@ -244,6 +265,10 @@ pub enum ElemwisePrecision {
     U16,
     U8,
     Bool,
+    QFloat {
+        scheme: QuantizationScheme,
+        working_precision: WorkingPrecision,
+    },
 }
 
 impl From<Elem> for ElemwisePrecision {

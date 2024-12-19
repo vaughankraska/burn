@@ -6,9 +6,17 @@ use burn_tensor::DType;
 use cubecl::calculate_cube_count_elemwise;
 use cubecl::prelude::*;
 
-use super::{QParams, QTensor};
+use super::{unpack_i8s, QParams, QTensor};
 
 #[cube]
+/// Recover the floating-point value for an integer value obtained via int8 symmetric quantization.
+pub(crate) fn dequantize_symmetric_int8<F: Float>(value: Line<i32>, scale: f32) -> Line<F> {
+    // x = scale * x_q
+    Line::cast_from(scale) * Line::cast_from(value)
+}
+
+#[cube]
+/// Recover the floating-point value for an integer value obtained via int8 affine quantization.
 pub(crate) fn dequantize_affine_int8<F: Float>(
     value: Line<i32>,
     scale: f32,
@@ -19,25 +27,66 @@ pub(crate) fn dequantize_affine_int8<F: Float>(
 }
 
 #[cube]
-pub(crate) fn extract_i8(value: u32, offset: u32) -> i32 {
-    // Extract 8-bit segment
-    let value = (value >> offset) & 0xFF;
-    // Check if the value is negative by inspecting the MSB and subtract 256 if it is
-    // Subtract 0 or 256 to circumvent unsupported conditional assignment (let x = if {} else {};)
-    let sub = i32::cast_from(value & 0x80 != 0) * 256;
-    i32::cast_from(value) - sub
+/// Dequantize the packed 8-bit signed integer values to recover the 4 original floating-point values.
+pub(crate) fn dequantize_symmetric_int8_unpacked<F: Float>(value: u32, scale: f32) -> Line<F> {
+    dequantize_symmetric_int8(unpack_i8s(value), scale)
 }
 
 #[cube]
-pub(crate) fn extract_i8s(value: u32) -> Line<i32> {
-    let mut line = Line::empty(4);
-    // Extract each 8-bit segment
-    line[0] = extract_i8(value, 0);
-    line[1] = extract_i8(value, 8);
-    line[2] = extract_i8(value, 16);
-    line[3] = extract_i8(value, 24);
+/// Dequantize the packed 8-bit signed integer values to recover the 4 original floating-point values.
+pub(crate) fn dequantize_affine_int8_unpacked<F: Float>(
+    value: u32,
+    scale: f32,
+    offset: i32,
+) -> Line<F> {
+    dequantize_affine_int8(unpack_i8s(value), scale, offset)
+}
 
-    line
+#[cube]
+/// Dequantize multiple packed 8-bit signed integer values to recover the original floating-point values.
+///
+/// # Note
+/// This function assumes that the input line size is a factor of 4.
+pub(crate) fn dequantize_symmetric_int8_unpacked_line<F: Float>(
+    value: Line<u32>,
+    scale: f32,
+) -> Line<F> {
+    let line_size = value.size();
+    let num_packed = crate::kernel::quantization::NUM_PACKED_QINT8;
+    let mut values = Line::<F>::empty(line_size * num_packed);
+    #[unroll]
+    for i in 0..line_size {
+        let v = dequantize_symmetric_int8_unpacked(value[i], scale);
+        #[unroll]
+        for j in 0..num_packed {
+            values[i * num_packed + j] = v[j];
+        }
+    }
+    values
+}
+
+#[cube]
+/// Dequantize multiple packed 8-bit signed integer values to recover the original floating-point values.
+///
+/// # Note
+/// This function assumes that the input line size is a factor of 4.
+pub(crate) fn dequantize_affine_int8_unpacked_line<F: Float>(
+    value: Line<u32>,
+    scale: f32,
+    offset: i32,
+) -> Line<F> {
+    let line_size = value.size();
+    let num_packed = crate::kernel::quantization::NUM_PACKED_QINT8;
+    let mut values = Line::<F>::empty(line_size * num_packed);
+    #[unroll]
+    for i in 0..line_size {
+        let v = dequantize_affine_int8_unpacked(value[i], scale, offset);
+        #[unroll]
+        for j in 0..num_packed {
+            values[i * num_packed + j] = v[j];
+        }
+    }
+    values
 }
 
 #[cube(launch_unchecked)]
@@ -58,22 +107,16 @@ pub(crate) fn dequantize_per_tensor_affine_int8_kernel(
 
     // Input line size is fixed to 1
     if comptime!(output.line_size() == 4) {
-        output[ABSOLUTE_POS] = dequantize_affine_int8(extract_i8s(value[0]), scale, offset);
+        output[ABSOLUTE_POS] = dequantize_affine_int8_unpacked::<f32>(value[0], scale, offset);
     } else {
         // For very small inputs where number of elements < 4, the output line size is 1
-        let out = dequantize_affine_int8::<f32>(extract_i8s(value[0]), scale, offset);
+        let out = dequantize_affine_int8_unpacked::<f32>(value[0], scale, offset);
 
         #[unroll]
         for j in 0..out.size() {
             output[ABSOLUTE_POS + j] = Line::cast_from(out[j]);
         }
     }
-}
-
-#[cube]
-pub(crate) fn dequantize_symmetric_int8<F: Float>(value: Line<i32>, scale: f32) -> Line<F> {
-    // x = scale * x_q
-    Line::cast_from(scale) * Line::cast_from(value)
 }
 
 // Would have wrapped symmetric with the same affine kernel but cube doesn't support Option<Tensor> for offset.
@@ -95,10 +138,10 @@ pub(crate) fn dequantize_per_tensor_symmetric_int8_kernel(
 
     // Input line size is fixed to 1
     if comptime!(output.line_size() == 4) {
-        output[ABSOLUTE_POS] = dequantize_symmetric_int8(extract_i8s(value[0]), scale);
+        output[ABSOLUTE_POS] = dequantize_symmetric_int8_unpacked::<f32>(value[0], scale);
     } else {
         // For very small inputs where number of elements < 4, the output line size is 1
-        let out = dequantize_symmetric_int8::<f32>(extract_i8s(value[0]), scale);
+        let out = dequantize_symmetric_int8_unpacked::<f32>(value[0], scale);
 
         #[unroll]
         for j in 0..out.size() {

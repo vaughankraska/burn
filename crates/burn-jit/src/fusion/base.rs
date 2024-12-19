@@ -2,8 +2,8 @@ use super::elemwise::optimization::{ElemwiseOptimization, ElemwiseOptimizationSt
 use super::matmul::optimization::{MatmulOptimization, MatmulOptimizationState};
 use crate::fusion::elemwise::builder::ElementWiseBuilder;
 use crate::fusion::matmul::builder::MatmulBuilder;
-use crate::BoolElement;
 use crate::{kernel, tensor::JitTensor, FloatElement, IntElement, JitBackend, JitRuntime};
+use crate::{BoolElement, JitElement};
 
 use burn_fusion::{client::MutexFusionClient, FusionBackend, FusionRuntime};
 use burn_tensor::repr::TensorHandle;
@@ -11,7 +11,7 @@ use burn_tensor::DType;
 use burn_tensor::{repr::ReprBackend, Shape};
 use core::marker::PhantomData;
 use cubecl::client::ComputeClient;
-use cubecl::prelude::{TensorArg, TensorHandleRef};
+use cubecl::prelude::{ArrayArg, TensorArg, TensorHandleRef};
 use half::{bf16, f16};
 use serde::{Deserialize, Serialize};
 
@@ -238,7 +238,7 @@ impl<R: JitRuntime> JitFusionHandle<R> {
             strides: &self.strides,
             shape,
             runtime: PhantomData,
-            elem_size: self.dtype.size(),
+            elem_size: self.elem_size(),
         }
     }
     /// Return the reference to a tensor argument.
@@ -251,8 +251,27 @@ impl<R: JitRuntime> JitFusionHandle<R> {
                 handle.strides,
                 handle.shape,
                 vectorisation,
-                self.dtype.size(),
+                self.elem_size(),
             )
+        }
+    }
+    /// Return the reference to an array argument.
+    pub fn as_array_arg<E: JitElement>(&self, vectorisation: u8) -> ArrayArg<'_, R> {
+        unsafe {
+            ArrayArg::from_raw_parts::<E>(
+                &self.handle,
+                self.handle.size() as usize / core::mem::size_of::<E>(),
+                vectorisation,
+            )
+        }
+    }
+
+    fn elem_size(&self) -> usize {
+        if let DType::QFloat(_) = self.dtype {
+            // Encoded as u32
+            core::mem::size_of::<u32>()
+        } else {
+            self.dtype.size()
         }
     }
 }

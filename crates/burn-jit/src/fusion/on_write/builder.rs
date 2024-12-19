@@ -208,6 +208,10 @@ impl FuseOnWriteBuilder {
                 .register_unary_ops(desc, |input, out| {
                     ElemwiseOp::Recip(UnaryElemwiseArgs { input, out })
                 }),
+            FloatOperationDescription::Dequantize(desc) => self
+                .register_unary_ops(desc, |input, out| {
+                    ElemwiseOp::Dequantize(UnaryElemwiseArgs { input, out })
+                }),
             _ => false,
         }
     }
