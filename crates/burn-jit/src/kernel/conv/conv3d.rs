@@ -31,7 +31,7 @@ pub(crate) fn conv3d<R: JitRuntime, E: FloatElement>(
     out
 }
 
-pub fn shape_out<R: JitRuntime>(
+fn shape_out<R: JitRuntime>(
     input: &JitTensor<R>,
     weight: &JitTensor<R>,
     options: &ConvOptions<3>,

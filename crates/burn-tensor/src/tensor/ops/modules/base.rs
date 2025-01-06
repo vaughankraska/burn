@@ -213,6 +213,20 @@ impl<const N: usize> ConvTransposeOptions<N> {
     }
 }
 
+impl<const N: usize> Into<cubecl::convolution::ConvTransposeOptions<N>>
+    for ConvTransposeOptions<N>
+{
+    fn into(self) -> cubecl::convolution::ConvTransposeOptions<N> {
+        cubecl::convolution::ConvTransposeOptions::<N> {
+            stride: self.stride,
+            padding: self.padding,
+            padding_out: self.padding_out,
+            dilation: self.dilation,
+            groups: self.groups,
+        }
+    }
+}
+
 /// Unfold operation options.
 #[derive(Debug, Clone)]
 pub struct UnfoldOptions {
