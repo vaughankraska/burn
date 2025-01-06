@@ -126,6 +126,17 @@ impl<const N: usize> ConvOptions<N> {
     }
 }
 
+impl<const N: usize> Into<cubecl::convolution::ConvOptions<N>> for ConvOptions<N> {
+    fn into(self) -> cubecl::convolution::ConvOptions<N> {
+        cubecl::convolution::ConvOptions::<N> {
+            stride: self.stride,
+            padding: self.padding,
+            dilation: self.dilation,
+            groups: self.groups,
+        }
+    }
+}
+
 /// Convolution options.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct DeformConvOptions<const N: usize> {
