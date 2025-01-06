@@ -1,5 +1,8 @@
 use crate::{ops::numeric::empty_device, tensor::JitTensor, FloatElement, JitRuntime};
-use burn_tensor::{ops::ConvTransposeOptions, Shape};
+use burn_tensor::{
+    ops::{conv::calculate_conv_transpose_output_size, ConvTransposeOptions},
+    Shape,
+};
 
 pub(crate) fn conv_transpose3d<R: JitRuntime, E: FloatElement>(
     input: JitTensor<R>,
@@ -35,21 +38,30 @@ fn shape_out<R: JitRuntime>(
     let [batch_size, _, in_depth, in_height, in_width] = input.shape.dims();
     let [_, out_channels, kernel_0, kernel_1, kernel_2] = weight.shape.dims();
 
-    let out_0 = (in_depth - 1) * options.stride[0]
-        + options.dilation[0] * (kernel_0 - 1)
-        + options.padding_out[0]
-        - 2 * options.padding[0]
-        + 1;
-    let out_1 = (in_height - 1) * options.stride[1]
-        + options.dilation[1] * (kernel_1 - 1)
-        + options.padding_out[1]
-        - 2 * options.padding[1]
-        + 1;
-    let out_2 = (in_width - 1) * options.stride[2]
-        + options.dilation[2] * (kernel_2 - 1)
-        + options.padding_out[2]
-        - 2 * options.padding[2]
-        + 1;
+    let out_0 = calculate_conv_transpose_output_size(
+        kernel_0,
+        options.stride[0],
+        options.padding[0],
+        options.padding_out[0],
+        options.dilation[0],
+        in_depth,
+    );
+    let out_1 = calculate_conv_transpose_output_size(
+        kernel_1,
+        options.stride[1],
+        options.padding[1],
+        options.padding_out[1],
+        options.dilation[1],
+        in_height,
+    );
+    let out_2 = calculate_conv_transpose_output_size(
+        kernel_2,
+        options.stride[2],
+        options.padding[2],
+        options.padding_out[2],
+        options.dilation[2],
+        in_width,
+    );
 
     Shape::new([
         batch_size,
