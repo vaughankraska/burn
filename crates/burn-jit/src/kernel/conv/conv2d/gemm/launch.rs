@@ -23,7 +23,7 @@ use crate::{
                 algorithm::{Algorithm, ImplicitCmmaConv},
                 base::{ConvolutionLaunch, ConvolutionProblem},
             },
-            nchw_to_nhwc, Conv2dAutotuneKey,
+            nchw_to_nhwc,
         },
         into_contiguous,
     },

@@ -1,16 +1,12 @@
 use burn_tensor::{ops::ConvTransposeOptions, ElementConversion, Shape};
-use cubecl::{
-    tune,
-    tune::{local_tuner, tune_with, LocalTuner},
-};
+use cubecl::tune;
+use cubecl::tune::{local_tuner, tune_with, LocalTuner};
 
+use crate::kernel::conv::conv_transpose2d;
+use crate::kernel::conv::ConvTranspose2dStrategy;
 use crate::{
-    kernel::{
-        conv::{batches_per_run, conv_transpose2d_col2im, conv_transpose2d_direct},
-        prng::random_uniform,
-    },
-    tensor::JitTensor,
-    FloatElement, JitAutotuneKey, JitRuntime, JitTuneId,
+    kernel::prng::random_uniform, tensor::JitTensor, FloatElement, JitAutotuneKey, JitRuntime,
+    JitTuneId,
 };
 
 use super::ConvTranspose2dAutotuneKey;
@@ -36,7 +32,7 @@ pub fn conv_transpose2d_autotune<R: JitRuntime, E: FloatElement>(
 }
 
 #[tune(operations(conv_transpose2d_direct, conv_transpose2d_col2im), create_key = create_key::<R, E>, should_run = should_run)]
-pub fn conv_transpose2d_operations<R: JitRuntime, E: FloatElement>(
+fn conv_transpose2d_operations<R: JitRuntime, E: FloatElement>(
     key: JitAutotuneKey,
     input: JitTensor<R>,
     weights: JitTensor<R>,
@@ -60,6 +56,7 @@ pub fn conv_transpose2d_operations<R: JitRuntime, E: FloatElement>(
     let bias = key
         .has_bias
         .then(|| random_uniform(bias_shape, device, random_bounds.0, random_bounds.1));
+
     tune_with!(input, weights, bias, options)
 }
 
@@ -107,7 +104,38 @@ fn should_run<R: JitRuntime, F: FloatElement>(
 
     match index {
         // im2col
-        1 => batches_per_run(key.batch_size, key.height, key.width).is_some(),
+        1 => cubecl::convolution::conv2d::batches_per_run(key.batch_size, key.height, key.width)
+            .is_some(),
         _ => true,
     }
+}
+
+fn conv_transpose2d_direct<R: JitRuntime, E: FloatElement>(
+    input: JitTensor<R>,
+    weights: JitTensor<R>,
+    bias: Option<JitTensor<R>>,
+    options: ConvTransposeOptions<2>,
+) -> JitTensor<R> {
+    conv_transpose2d::conv_transpose2d::<R, E>(
+        input,
+        weights,
+        bias,
+        options,
+        ConvTranspose2dStrategy::Direct,
+    )
+}
+
+fn conv_transpose2d_col2im<R: JitRuntime, E: FloatElement>(
+    input: JitTensor<R>,
+    weights: JitTensor<R>,
+    bias: Option<JitTensor<R>>,
+    options: ConvTransposeOptions<2>,
+) -> JitTensor<R> {
+    conv_transpose2d::conv_transpose2d::<R, E>(
+        input,
+        weights,
+        bias,
+        options,
+        ConvTranspose2dStrategy::Gemm,
+    )
 }

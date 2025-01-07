@@ -74,7 +74,7 @@ where
         bias: Option<FloatTensor<Self>>,
         options: ConvTransposeOptions<2>,
     ) -> FloatTensor<Self> {
-        kernel::conv::conv_transpose2d::<R, F, I>(
+        kernel::conv::conv_transpose2d::<R, F>(
             x,
             weight,
             bias,

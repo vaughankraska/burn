@@ -9,17 +9,17 @@ use crate::{
     kernel::{
         cast, into_contiguous,
         matmul::{matmul, MatmulStrategy},
-        slice_assign,
+        slice, slice_assign,
     },
     ops::{
         numeric::{empty_device, ones_device, zeros_device},
         reshape, swap_dims,
     },
     tensor::JitTensor,
-    FloatElement, IntElement, JitBackend, JitRuntime,
+    FloatElement, IntElement, JitBackend, JitElement, JitRuntime,
 };
 
-use super::{bilinear_interpolate, deform_im2col, index};
+use super::{bilinear_interpolate, deform_im2col};
 
 /// Calculate the [deformable 2D convolution](crate::ops::ModuleOps::deform_conv2d) backward pass using convolutions.
 #[allow(clippy::single_range_in_vec_init)]
@@ -148,8 +148,8 @@ fn backward_gradient_inputs<R: JitRuntime, E: FloatElement>(
     let out_grad = reshape(out_grad, out_grad_shape);
 
     for group in 0..groups {
-        let weight = swap_dims(index::<R, E>(weight.clone(), group), 0, 1);
-        let out_grad = index::<R, E>(out_grad.clone(), group);
+        let weight = swap_dims(col2im_index::<R, E>(weight.clone(), group), 0, 1);
+        let out_grad = col2im_index::<R, E>(out_grad.clone(), group);
         let values = matmul::<R, E>(weight, out_grad, None, MatmulStrategy::default());
         let values = reshape(values, Shape::new([1, col_shape_0, col_shape_1]));
         columns = slice_assign::<R, E>(
@@ -602,4 +602,20 @@ fn float_atomic_add(ptr: &mut AtomicU32, value: f32) {
             }
         }
     }
+}
+
+pub(crate) fn col2im_index<R: JitRuntime, E: JitElement>(
+    tensor: JitTensor<R>,
+    i: usize,
+) -> JitTensor<R> {
+    #[allow(clippy::single_range_in_vec_init)]
+    let mut indices = vec![i..i + 1];
+    for dim in tensor.shape.dims[1..].iter() {
+        indices.push(0..*dim);
+    }
+    let new_shape = Shape {
+        dims: tensor.shape.dims[1..].to_vec(),
+    };
+    let tensor = slice::<R, E>(tensor, &indices);
+    reshape(tensor, new_shape)
 }

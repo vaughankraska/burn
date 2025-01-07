@@ -18,7 +18,7 @@ pub(crate) fn conv_transpose3d<R: JitRuntime, E: FloatElement>(
         shape_out(&input, &weight, &options),
     );
 
-    cubecl::convolution::conv_transpose3d::launch_ref::<R, E>(
+    cubecl::convolution::conv3d::conv_transpose::launch_ref::<R, E>(
         client,
         input.as_handle_ref(),
         weight.as_handle_ref(),

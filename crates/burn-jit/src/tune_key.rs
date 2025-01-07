@@ -1,5 +1,5 @@
 use crate::kernel::{
-    conv::{Conv2dAutotuneKey, ConvTranspose2dAutotuneKey},
+    conv::tune::{Conv2dAutotuneKey, ConvTranspose2dAutotuneKey},
     matmul::MatmulAutotuneKey,
     reduce::ReduceAutotuneKey,
 };
