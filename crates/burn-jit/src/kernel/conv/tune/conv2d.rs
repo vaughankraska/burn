@@ -1,5 +1,9 @@
+use crate::kernel::conv::conv2d::conv2d_gemm_cmma_balanced;
+use crate::kernel::conv::conv2d::conv2d_gemm_cmma_large_m;
+use crate::kernel::conv::conv2d::conv2d_im2col;
+use crate::kernel::conv::conv2d::conv2d_implicit_gemm;
 use crate::kernel::conv::{
-    conv2d::{conv2d, conv2d_im2col},
+    conv2d::{can_do_implicit_gemm, conv2d},
     Conv2dStrategy,
 };
 use burn_tensor::{
@@ -12,13 +16,18 @@ use cubecl::{
         gemm::{
             algorithm::{Algorithm, ImplicitCmmaConv},
             precision::ConvPrecision,
-            selection::ConvSelector,
+            selection::{Balanced, ConvSelector, Large},
         },
         ConvolutionProblem,
     },
     tune,
     tune::{local_tuner, tune_with, LocalTuner},
 };
+use cubecl::{
+    ir::{Elem, FloatKind},
+    tf32,
+};
+use half::f16;
 
 use super::{problem_from_key, Conv2dAutotuneKey};
 use crate::{
@@ -48,9 +57,9 @@ pub fn conv2d_autotune<R: JitRuntime, E: FloatElement>(
     operations(
         conv2d_direct,
         conv2d_im2col,
-        // conv2d_implicit_gemm,
-        // conv2d_gemm_cmma_large_m,
-        // conv2d_gemm_cmma_balanced
+        conv2d_implicit_gemm,
+        conv2d_gemm_cmma_large_m,
+        conv2d_gemm_cmma_balanced
     ),
     create_key = create_key::<R, E>,
     should_run = should_run
@@ -87,7 +96,7 @@ macro_rules! check_algo {
     ($algo:tt, $float:ty, $input:expr, $problem:expr) => {
         match (
             <$float>::as_elem_native_unchecked(),
-            cubecl::convolution::has_tf32(&$input),
+            cubecl::convolution::has_tf32::<R>(&$input.client),
         ) {
             (Elem::Float(FloatKind::F32), true) => {
                 can_launch::<$algo, R, ($float, tf32, f32)>($input, $problem)
@@ -159,20 +168,20 @@ fn should_run<R: JitRuntime, F: FloatElement>(
         // im2col
         1 => batches_per_run(key.batch_size, out_h, out_w).is_some(),
         // Implicit gemm.
-        // 2 => can_do_implicit_gemm::<R, F>(
-        //     key.batch_size,
-        //     key.in_channels,
-        //     key.out_channels,
-        //     key.kernel_size,
-        //     op.options.groups,
-        //     out_h,
-        //     out_w,
-        //     &op.input.client,
-        // ),
+        2 => can_do_implicit_gemm::<R, F>(
+            key.batch_size,
+            key.in_channels,
+            key.out_channels,
+            key.kernel_size,
+            op.options.groups,
+            out_h,
+            out_w,
+            &op.input.client,
+        ),
         // GEMM large m
-        // 3 => check_algo!(Large, F, &op.input, &conv_problem),
+        3 => check_algo!(Large, F, &op.input, &conv_problem),
         // GEMM balanced
-        // 4 => check_algo!(Balanced, F, &op.input, &conv_problem),
+        4 => check_algo!(Balanced, F, &op.input, &conv_problem),
         _ => true,
     }
 }
@@ -242,3 +251,30 @@ fn conv2d_direct<R: JitRuntime, E: FloatElement>(
 ) -> JitTensor<R> {
     conv2d::<R, E>(input, weight, bias, options, Conv2dStrategy::Direct)
 }
+
+// fn conv2d_implicit_gemm<R: JitRuntime, E: FloatElement>(
+//     input: JitTensor<R>,
+//     weight: JitTensor<R>,
+//     bias: Option<JitTensor<R>>,
+//     options: ConvOptions<2>,
+// ) -> JitTensor<R> {
+//     conv2d::<R, E>(input, weight, bias, options, Conv2dStrategy::Direct)
+// }
+
+// fn conv2d_gemm_cmma_large_m<R: JitRuntime, E: FloatElement>(
+//     input: JitTensor<R>,
+//     weight: JitTensor<R>,
+//     bias: Option<JitTensor<R>>,
+//     options: ConvOptions<2>,
+// ) -> JitTensor<R> {
+//     conv2d::<R, E>(input, weight, bias, options, Conv2dStrategy::Direct)
+// }
+
+// fn conv2d_gemm_cmma_balanced<R: JitRuntime, E: FloatElement>(
+//     input: JitTensor<R>,
+//     weight: JitTensor<R>,
+//     bias: Option<JitTensor<R>>,
+//     options: ConvOptions<2>,
+// ) -> JitTensor<R> {
+//     conv2d::<R, E>(input, weight, bias, options, Conv2dStrategy::Direct)
+// }

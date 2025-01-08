@@ -8,7 +8,9 @@ use crate::{
     FloatElement, JitRuntime,
 };
 
-use super::{gemm::conv2d_gemm_cmma_large_m, im2col::conv2d_im2col};
+use super::{
+    gemm::conv2d_gemm_cmma_large_m, im2col::conv2d_im2col, implicit_gemm::conv2d_implicit_gemm,
+};
 
 // #[cfg(feature = "autotune")]
 // use super::tune::conv2d_autotune;
@@ -79,8 +81,7 @@ pub fn conv2d<R: JitRuntime, E: FloatElement>(
         #[cfg(feature = "autotune")]
         Conv2dStrategy::Autotune => conv2d_autotune::<R, E>(input, weight, bias, options),
         Conv2dStrategy::Gemm => conv2d_im2col::<R, E>(input, weight, bias, options),
-        // Conv2dStrategy::ImplicitGemm => conv2d_implicit_gemm::<R, E>(input, weight, bias, options),
-        Conv2dStrategy::ImplicitGemm => todo!(),
+        Conv2dStrategy::ImplicitGemm => conv2d_implicit_gemm::<R, E>(input, weight, bias, options),
         Conv2dStrategy::ImplicitGemmComplex => {
             conv2d_gemm_cmma_large_m::<R, E>(input, weight, bias, options)
         }
