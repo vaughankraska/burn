@@ -6,13 +6,13 @@ use cubecl::convolution::conv2d::batches_per_run;
 
 use crate::{
     kernel::{
+        conv::utils::tensor_index,
         into_contiguous,
         matmul::{matmul, MatmulStrategy},
-        slice,
     },
     ops::{numeric::empty_device, reshape, swap_dims},
     tensor::JitTensor,
-    FloatElement, JitElement, JitRuntime,
+    FloatElement, JitRuntime,
 };
 
 /// Perform a 2D convolution transposition using the GEMM (col2im) algorithm.
@@ -79,10 +79,10 @@ pub fn conv_transpose2d_col2im<R: JitRuntime, E: FloatElement>(
         let input_shape_run = Shape::new([batches_per_run, input_channels, input_h, input_w]);
 
         for run in 0..runs {
-            let input = col2im_index::<R, E>(input.clone(), run);
+            let input = tensor_index::<R, E>(input.clone(), run);
             let input = reshape(input, input_shape_run.clone());
             let im_shape = Shape::new([batches_per_run, im_channels, im_h, im_w]);
-            let image_slice = col2im_index::<R, E>(image.clone(), run);
+            let image_slice = tensor_index::<R, E>(image.clone(), run);
             let image_slice = reshape(image_slice, im_shape);
 
             execute::<R, E>(
@@ -115,22 +115,6 @@ pub fn conv_transpose2d_col2im<R: JitRuntime, E: FloatElement>(
     }
 }
 
-pub(crate) fn col2im_index<R: JitRuntime, E: JitElement>(
-    tensor: JitTensor<R>,
-    i: usize,
-) -> JitTensor<R> {
-    #[allow(clippy::single_range_in_vec_init)]
-    let mut indices = vec![i..i + 1];
-    for dim in tensor.shape.dims[1..].iter() {
-        indices.push(0..*dim);
-    }
-    let new_shape = Shape {
-        dims: tensor.shape.dims[1..].to_vec(),
-    };
-    let tensor = slice::<R, E>(tensor, &indices);
-    reshape(tensor, new_shape)
-}
-
 #[allow(clippy::too_many_arguments)]
 fn execute<R: JitRuntime, E: FloatElement>(
     input: JitTensor<R>,
@@ -153,7 +137,7 @@ fn execute<R: JitRuntime, E: FloatElement>(
     let columns = matmul::<R, E>(weight, input, None, MatmulStrategy::default());
     let columns = reshape(columns, Shape::new([col_shape_0 * groups, col_shape_1]));
 
-    cubecl::convolution::conv2d::col2im::<R, E>(
+    cubecl::convolution::conv_transpose2d::col2im::<R, E>(
         &columns.client,
         columns.as_handle_ref(),
         bias.as_ref().map(|bias_ref| bias_ref.as_handle_ref()),

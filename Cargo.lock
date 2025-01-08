@@ -1689,6 +1689,7 @@ dependencies = [
  "cubecl-core",
  "cubecl-linalg",
  "cubecl-runtime 0.4.0",
+ "half",
  "serde",
 ]
 
