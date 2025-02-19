@@ -217,6 +217,7 @@ pub fn autotune_sum<Run: CubeRuntime, E: CubeElement>(
 
     static TUNER: LocalTuner<CubeAutotuneKey, CubeTuneId> = local_tuner!();
 
+    #[cfg(not(target_family = "wasm"))]
     let tunables = TunableSet::new(create_key_sum::<Run>, sum_input_gen::<Run, E>)
         .with_tunable(sum_one_shot::<Run, E, 1>)
         .with_tunable(sum_one_shot::<Run, E, 2>)
@@ -225,6 +226,10 @@ pub fn autotune_sum<Run: CubeRuntime, E: CubeElement>(
         .with_tunable(sum_one_shot::<Run, E, 16>)
         .with_tunable(sum_one_shot::<Run, E, 32>)
         .with_tunable(sum_one_shot::<Run, E, 64>)
+        .with_tunable(sum_chained::<Run, E>);
+
+    #[cfg(target_family = "wasm")]
+    let tunables = TunableSet::new(create_key_sum::<Run>, sum_input_gen::<Run, E>)
         .with_tunable(sum_chained::<Run, E>);
 
     TUNER.execute(
